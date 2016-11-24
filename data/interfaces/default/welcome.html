@@ -1,6 +1,6 @@
 ﻿<%
-import plexpy
-from plexpy import common
+    import plexpy
+    from plexpy import common
 %>
 
 <!doctype html>
@@ -12,14 +12,14 @@ from plexpy import common
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="">
-    <link href="interfaces/default/css/bootstrap3/bootstrap.css" rel="stylesheet">
-    <link href="interfaces/default/css/bootstrap-wizard.css" rel="stylesheet">
-    <link href="interfaces/default/css/plexpy.css" rel="stylesheet">
-    <link href="interfaces/default/css/selectize.bootstrap3.css" rel="stylesheet">
+    <link href="${http_root}css/bootstrap3/bootstrap.css" rel="stylesheet">
+    <link href="${http_root}css/bootstrap-wizard.css" rel="stylesheet">
+    <link href="${http_root}css/plexpy.css" rel="stylesheet">
+    <link href="${http_root}css/selectize.bootstrap3.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" type="text/css">
-    <link href="interfaces/default/css/font-awesome.min.css" rel="stylesheet">
-    <link rel="icon" type="image/x-icon" href="interfaces/default/images/favicon.ico"/>
-    <link rel="shortcut icon" href="interfaces/default/images/favicon.ico">
+    <link href="${http_root}css/font-awesome.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="${http_root}images/favicon.ico"/>
+    <link rel="shortcut icon" href="${http_root}images/favicon.ico">
 </head>
 
 <body>
@@ -28,7 +28,7 @@ from plexpy import common
         <div class="wizard" id="some-wizard" data-title="PlexPy Setup Wizard">
             <div class="wizard-card" data-cardname="card1">
                 <div style="float: right;">
-                    <img src="interfaces/default/images/logo-plexpy.png"/>
+                    <img src="${http_root}images/logo-plexpy.png"/>
                 </div>
                 <h3 style="line-height: 50px;">Welcome!</h3>
                 <br/>
@@ -83,7 +83,7 @@ from plexpy import common
                         <div class="col-xs-4">
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" id="pms_ssl" name="pms_ssl" value="1"> Force SSL
+                                    <input type="checkbox" id="pms_ssl" name="pms_ssl" value="1"> Use SSL
                                 </label>
                             </div>
                         </div>
@@ -125,9 +125,9 @@ from plexpy import common
                     <p class="help-block">The interval (in seconds) PlexPy will wait for a video item to be active before logging it. 0 to disable.</p>
                 </div>
             </div>
-            <div class="wizard-card" data-cardname="card5" data-validate="validateNotifications">
+            <div class="wizard-card" data-cardname="card5">
                 <h3>Notifications</h3>
-                <p class="help-block">PlexPy supports a wide variety of notification options. To set up a notification agent conifgure this in <strong>Settings -> Notification Agents</strong>
+                <p class="help-block">PlexPy supports a wide variety of notification options. To set up a notification agent configure this in <strong>Settings -> Notification Agents</strong>
                 after you have completed this setup wizard.</p><br/>
                 <div class="wizard-input-section">
                     <input type="checkbox" name="movie_notify_enable" id="movie_notify_enable" value="1" ${config['movie_notify_enable']}> Enable notifications on Movie playback
@@ -141,11 +141,11 @@ from plexpy import common
             </div>
 
             <div class="wizard-card" data-cardname="card6">
-                <h3>PlexWatch Import</h3>
-                <p class="help-block">If you have an existing PlexWatch database, you can import the data into PlexPy.</p>
+                <h3>Database Import</h3>
+                <p class="help-block">If you have an existing PlexWatch/Plexivity database, you can import the data into PlexPy.</p>
                 <p class="help-block">
                     When you complete this wizard navigate to the settings menu and to the Extra Settings tab. You will find an import tool there
-                    which will convert your plexWatch database into a format that PlexPy can read.
+                    which will convert your PlexWatch/Plexivity database into a format that PlexPy can read.
                 </p>
                 <!-- Figure out best way to get friends list refreshed before adding this back
                     You can skip this and do it later if you wish.</p>
@@ -168,8 +168,14 @@ from plexpy import common
                 <div style="display: none;">
                     <input type="checkbox" name="launch_browser" id="launch_browser" value="1" ${config['launch_browser']}>
                     <input type="checkbox" name="refresh_users_on_startup" id="refresh_users_on_startup" value="1" ${config['refresh_users_on_startup']}>
+                    <input type="checkbox" name="refresh_libraries_on_startup" id="refresh_libraries_on_startup" value="1" ${config['refresh_libraries_on_startup']}>
+                    <input type="checkbox" name="check_github" id="check_github" value="1" ${config['check_github']}>
+                    <input type="checkbox" name="log_blacklist" id="log_blacklist" value="1" ${config['log_blacklist']}>
+                    <input type="checkbox" name="cache_images" id="cache_images" value="1" ${config['cache_images']}>
+                    <input type="checkbox" name="server_changed" id="server_changed" value="1" checked>
                     <input type="checkbox" name="first_run_complete" id="first_run_complete" value="1" checked>
-                    <input type="checkbox" name="check_github" id="check_github" value="1" checked>
+                    <input type="text" name="home_stats_cards" id="home_stats_cards" value="first_run_wizard">
+                    <input type="text" name="home_library_cards" id="home_library_cards" value="first_run_wizard">
                 </div>
             </div>
             <!-- Required fields but hidden -->
@@ -187,11 +193,11 @@ from plexpy import common
     </div>
 </div>
 
-<script src="interfaces/default/js/jquery-2.1.4.min.js"></script>
-<script src="interfaces/default/js/bootstrap3/bootstrap.min.js"></script>
-<script src="interfaces/default/js/selectize.min.js"></script>
-<script src="interfaces/default/js/script.js"></script>
-<script src="interfaces/default/js/bootstrap-wizard.min.js"></script>
+<script src="${http_root}js/jquery-2.1.4.min.js"></script>
+<script src="${http_root}js/bootstrap.min.js"></script>
+<script src="${http_root}js/selectize.min.js"></script>
+<script src="${http_root}js/script.js"></script>
+<script src="${http_root}js/bootstrap-wizard.min.js"></script>
 <script>
 
     $(document).ready(function() {
@@ -240,7 +246,7 @@ from plexpy import common
             },
             render: {
                 option: function (item, escape) {
-                    return '<div data-use_ssl="' + item.httpsRequired + '" data-local="' + item.local + '" data-ci="' + item.clientIdentifier + '" data-ip="' + item.ip + '" data-port="' + item.port + '">' + item.value + '</div>';
+                    return '<div data-use_ssl="' + item.httpsRequired + '" data-local="' + item.local + '" data-ci="' + item.clientIdentifier + '" data-ip="' + item.ip + '" data-port="' + item.port + '" data-label="' + item.label + '">' + item.value + ' (' + item.label + ')</div>';
                 },
                 item: function (item, escape) {
                     // first item is rendered before initialization bug?
@@ -250,7 +256,7 @@ from plexpy import common
                             .filter('[value="' + item.value + '"]').data());
 
                     }
-                    return '<div data-use_ssl="' + item.httpsRequired + '" data-local="' + item.local + '" data-ci="' + item.clientIdentifier + '" data-ip="' + item.ip + '" data-port="' + item.port + '">' + item.value + '</div>';
+                    return '<div data-use_ssl="' + item.httpsRequired + '" data-local="' + item.local + '" data-ci="' + item.clientIdentifier + '" data-ip="' + item.ip + '" data-port="' + item.port + '" data-label="' + item.label + '">' + item.value + ' (' + item.label + ')</div>';
                 }
             },
             onChange: function (item) {
@@ -343,25 +349,6 @@ from plexpy import common
         return retValue;
     }
 
-    function validateNotifications(el) {
-        var retValue = {};
-        retValue.status = true;
-
-        if ($('#movie_notify_on_start').is(':checked')) {
-            $('#movie_notify_enable').prop('checked', true);
-        }
-
-        if ($('#tv_notify_on_start').is(':checked')) {
-            $('#tv_notify_enable').prop('checked', true);
-        }
-
-        if ($('#music_notify_on_start').is(':checked')) {
-            $('#music_notify_enable').prop('checked', true);
-        }
-
-        return retValue;
-    }
-
     function isPositiveInt(n) {
         return $.isNumeric(n) && (Math.floor(n) == n) && (n >= 0)
     }
@@ -369,38 +356,44 @@ from plexpy import common
     var pms_verified = false;
     var authenticated = false;
 
-    $("#verify-plex-server").click(function() {
-        var pms_ip = $("#pms_ip").val()
-        var pms_port = $("#pms_port").val()
-        if (($("#pms_ip").val() !== '') || ($("#pms_port").val() !== '')) {
-            $("#pms-verify-status").html('<i class="fa fa-refresh fa-spin"></i> Validating server...');
-            $('#pms-verify-status').fadeIn('fast');
-            $.ajax({
-                url: 'get_server_id',
-                data : { hostname: pms_ip, port: pms_port },
-                cache: true,
-                async: true,
-                timeout: 5000,
-                error: function(jqXHR, textStatus, errorThrown) {
-                    $("#pms-verify-status").html('<i class="fa fa-exclamation-circle"></i> This is not a Plex Server!');
-                    $('#pms-verify-status').fadeIn('fast');
-                },
-                success: function (xml) {
-                    if ( $(xml).find('MediaContainer').attr('machineIdentifier') ) {
-                        $("#pms_identifier").val($(xml).find('MediaContainer').attr('machineIdentifier'));
-                        $("#pms-verify-status").html('<i class="fa fa-check"></i> Server found!');
-                        $('#pms-verify-status').fadeIn('fast');
-                        pms_verified = true;
-                        $("#pms_valid").val("valid");
-                    } else {
+    $("#verify-plex-server").click(function () {
+        if (!(pms_verified)) {
+            var pms_ip = $("#pms_ip").val().trim();
+            var pms_port = $("#pms_port").val().trim();
+            var pms_identifier = $("#pms_identifier").val();
+            var pms_ssl = $("#pms_ssl").is(':checked') ? 1 : 0;
+            var pms_is_remote = $("#pms_is_remote").is(':checked') ? 1 : 0;
+            if ((pms_ip !== '') || (pms_port !== '')) {
+                $("#pms-verify-status").html('<i class="fa fa-refresh fa-spin"></i> Validating server...');
+                $('#pms-verify-status').fadeIn('fast');
+                $.ajax({
+                    url: 'get_server_id',
+                    data: { hostname: pms_ip, port: pms_port, identifier: pms_identifier, ssl: pms_ssl, remote: pms_is_remote },
+                    cache: true,
+                    async: true,
+                    timeout: 5000,
+                    error: function (jqXHR, textStatus, errorThrown) {
                         $("#pms-verify-status").html('<i class="fa fa-exclamation-circle"></i> This is not a Plex Server!');
                         $('#pms-verify-status').fadeIn('fast');
+                    },
+                    success: function (json) {
+                        var machine_identifier = json;
+                        if (machine_identifier) {
+                            $("#pms_identifier").val(machine_identifier);
+                            $("#pms-verify-status").html('<i class="fa fa-check"></i> Server found!');
+                            $('#pms-verify-status').fadeIn('fast');
+                            pms_verified = true;
+                            $("#pms_valid").val("valid");
+                        } else {
+                            $("#pms-verify-status").html('<i class="fa fa-exclamation-circle"></i> This is not a Plex Server!');
+                            $('#pms-verify-status').fadeIn('fast');
+                        }
                     }
-                }
-            });
-        } else {
-            $("#pms-verify-status").html('<i class="fa fa-exclamation-circle"></i> Please enter both fields.');
-            $('#pms-verify-status').fadeIn('fast');
+                });
+            } else {
+                $("#pms-verify-status").html('<i class="fa fa-exclamation-circle"></i> Please enter both fields.');
+                $('#pms-verify-status').fadeIn('fast');
+            }
         }
     });
 
@@ -420,60 +413,59 @@ from plexpy import common
     $("#pms-authenticate").click(function() {
         $("#pms-token-status").html('<i class="fa fa-refresh fa-spin"></i> Fetching token...');
         $('#pms-token-status').fadeIn('fast');
-        if (($("#pms_username").val() !== '') || ($("#pms_password").val() !== '')) {
+        var pms_username = $("#pms_username").val().trim();
+        var pms_password = $("#pms_password").val().trim();
+        if ((pms_username !== '') && (pms_password !== '')) {
             $.ajax({
-                type: "post",
-                url: "https://plex.tv/users/sign_in.xml",
-                dataType: 'xml',
+                type: 'GET',
+                url: 'get_plexpy_pms_token',
+                data: {
+                    username: pms_username,
+                    password: pms_password
+                },
+                cache: false,
                 async: true,
-                headers: {'Content-Type': 'application/xml; charset=utf-8',
-                          'X-Plex-Device-Name': 'PlexPy',
-                          'X-Plex-Product': 'PlexPy',
-                          'X-Plex-Version': '${common.VERSION_NUMBER}',
-                          'X-Plex-Platform': '${common.PLATFORM}',
-                          'X-Plex-Platform-Version': '${common.PLATFORM_VERSION}',
-                          'X-Plex-Client-Identifier': '${config['pms_uuid']}',
-                          'Authorization': 'Basic ' + btoa($("#pms_username").val() + ':' + $("#pms_password").val())
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    $("#pms-token-status").html('<i class="fa fa-exclamation-circle"></i> Authentation failed!');
-                    $('#pms-token-status').fadeIn('fast');
-                },
-                success: function (xml) {
-                    var authToken = $(xml).find('user').attr('authenticationToken');
-                    $("#pms-token-status").html('<i class="fa fa-check"></i> Authentation successful!');
-                    $('#pms-token-status').fadeIn('fast');
-                    $("#pms_token").val(authToken);
-                    authenticated = true;
-                    getServerOptions(authToken)
+                complete: function (xhr, status) {
+                    var result = $.parseJSON(xhr.responseText);
+                    var msg = result.message;
+                    if (result.result == 'success') {
+                        var authToken = result.token;
+                        $("#pms-token-status").html('<i class="fa fa-check"></i> ' + msg);
+                        $('#pms-token-status').fadeIn('fast');
+                        $("#pms_token").val(authToken);
+                        authenticated = true;
+                        getServerOptions(authToken)
+                    } else {
+                        $("#pms-token-status").html('<i class="fa fa-exclamation-circle"></i> ' + msg);
+                    }
                 }
             });
         } else {
-            $("#pms-token-status").html('<i class="fa fa-exclamation-circle"></i> You must enter both fields.');
+            $("#pms-token-status").html('<i class="fa fa-exclamation-circle"></i> Username and password required.');
             $('#pms-token-status').fadeIn('fast');
         }
     });
 
     // Send database path to import script
-    $("#plexwatch-import").click(function() {
-        var database_path = $("#db_location").val();
-        var table_name = 'processed';
-        var import_ignore_interval = 0;
-        $.ajax({
-            url: 'get_plexwatch_export_data',
-            data: {database_path: database_path, table_name:table_name, import_ignore_interval:import_ignore_interval},
-            cache: false,
-            async: true,
-            success: function(data) {
-                if (data === 'Import has started. Check the PlexPy logs to monitor any problems.') {
-                    $("#plexwatch-import-status").html('Started');
-                } else {
-                    $("#plexwatch-import-status").html(data);
-                }
-                $("#db_location").val('')
-            }
-        });
-    });
+    //$("#plexwatch-import").click(function() {
+    //    var database_path = $("#db_location").val();
+    //    var table_name = 'processed';
+    //    var import_ignore_interval = 0;
+    //    $.ajax({
+    //        url: 'get_plexwatch_export_data',
+    //        data: {database_path: database_path, table_name:table_name, import_ignore_interval:import_ignore_interval},
+    //        cache: false,
+    //        async: true,
+    //        success: function(data) {
+    //            if (data === 'Import has started. Check the PlexPy logs to monitor any problems.') {
+    //                $("#plexwatch-import-status").html('Started');
+    //            } else {
+    //                $("#plexwatch-import-status").html(data);
+    //            }
+    //            $("#db_location").val('')
+    //        }
+    //    });
+    //});
 
     function getServerOptions(token) {
         /* Set token and returns server options */

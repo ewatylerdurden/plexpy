@@ -16,10 +16,13 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from plexpy import logger, helpers
 from httplib import HTTPSConnection
 from httplib import HTTPConnection
 import ssl
+
+import plexpy
+import helpers
+import logger
 
 
 class HTTPHandler(object):
@@ -44,7 +47,11 @@ class HTTPHandler(object):
                      headers=None,
                      output_format='raw',
                      return_type=False,
-                     no_token=False):
+                     no_token=False,
+                     timeout=None):
+
+        if timeout is None:
+            timeout = plexpy.CONFIG.PMS_TIMEOUT
 
         valid_request_types = ['GET', 'POST', 'PUT', 'DELETE']
 
@@ -56,40 +63,39 @@ class HTTPHandler(object):
             if proto.upper() == 'HTTPS':
                 if not self.ssl_verify and hasattr(ssl, '_create_unverified_context'):
                     context = ssl._create_unverified_context()
-                    handler = HTTPSConnection(host=self.host, port=self.port, timeout=10, context=context)
+                    handler = HTTPSConnection(host=self.host, port=self.port, timeout=timeout, context=context)
                     logger.warn(u"PlexPy HTTP Handler :: Unverified HTTPS request made. This connection is not secure.")
                 else:
-                    handler = HTTPSConnection(host=self.host, port=self.port, timeout=10)
+                    handler = HTTPSConnection(host=self.host, port=self.port, timeout=timeout)
             else:
-                handler = HTTPConnection(host=self.host, port=self.port, timeout=10)
+                handler = HTTPConnection(host=self.host, port=self.port, timeout=timeout)
 
-            token_string = ''
             if not no_token:
-                if uri.find('?') > 0:
-                    token_string = '&X-Plex-Token=' + self.token
+                if headers:
+                    headers.update({'X-Plex-Token': self.token})
                 else:
-                    token_string = '?X-Plex-Token=' + self.token
+                    headers = {'X-Plex-Token': self.token}
 
             try:
                 if headers:
-                    handler.request(request_type, uri + token_string, headers=headers)
+                    handler.request(request_type, uri, headers=headers)
                 else:
-                    handler.request(request_type, uri + token_string)
+                    handler.request(request_type, uri)
                 response = handler.getresponse()
                 request_status = response.status
                 request_content = response.read()
                 content_type = response.getheader('content-type')
-            except IOError, e:
+            except IOError as e:
                 logger.warn(u"Failed to access uri endpoint %s with error %s" % (uri, e))
                 return None
-            except Exception, e:
+            except Exception as e:
                 logger.warn(u"Failed to access uri endpoint %s. Is your server maybe accepting SSL connections only? %s" % (uri, e))
                 return None
             except:
                 logger.warn(u"Failed to access uri endpoint %s with Uncaught exception." % uri)
                 return None
 
-            if request_status == 200:
+            if request_status in (200, 201):
                 try:
                     if output_format == 'dict':
                         output = helpers.convert_xml_to_dict(request_content)

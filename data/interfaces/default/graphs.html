@@ -1,8 +1,8 @@
 <%inherit file="base.html"/>
 
 <%def name="headIncludes()">
-<link rel="stylesheet" href="interfaces/default/css/dataTables.bootstrap.css">
-<link rel="stylesheet" href="interfaces/default/css/plexpy-dataTables.css">
+<link rel="stylesheet" href="${http_root}css/dataTables.bootstrap.css">
+<link rel="stylesheet" href="${http_root}css/plexpy-dataTables.css">
 </%def>
 
 <%def name="body()">
@@ -12,6 +12,14 @@
             <span><i class="fa fa-bar-chart"></i> Graphs</span>
         </div>
         <div class="button-bar hidden-xs">
+            <div class="btn-group" id="user-selection">
+                <label>
+                    <select name="graph-user" id="graph-user" class="btn" style="color: inherit;">
+                        <option value="">All Users</option>
+                        <option disabled>&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</option>
+                    </select>
+                </label>
+            </div>
             <div class="btn-group" data-toggle="buttons" id="yaxis-selection">
                 % if config['graph_type'] == 'duration':
                 <label class="btn btn-dark">
@@ -240,16 +248,18 @@
 </%def>
 
 <%def name="javascriptIncludes()">
-<script src="interfaces/default/js/moment-with-locale.js"></script>
-<script src="interfaces/default/js/moment-duration-format.js"></script>
-<script src="interfaces/default/js/highcharts/js/highcharts.js"></script>
-<script src="interfaces/default/js/jquery.dataTables.min.js"></script>
-<script src="interfaces/default/js/dataTables.bootstrap.min.js"></script>
-<script src="interfaces/default/js/dataTables.bootstrap.pagination.js"></script>
+<script src="${http_root}js/moment-with-locale.js"></script>
+<script src="${http_root}js/moment-duration-format.js"></script>
+<script src="${http_root}js/highcharts/js/highcharts.js"></script>
+<script src="${http_root}js/jquery.dataTables.min.js"></script>
+<script src="${http_root}js/dataTables.bootstrap.min.js"></script>
+<script src="${http_root}js/dataTables.bootstrap.pagination.js"></script>
 
 <script>
+    var selected_user_id = null
+
     // Modal popup dialog
-    function selectHandler(selectedDate) {
+    function selectHandler(selectedDate, selectedSeries) {
 
         try
         {
@@ -259,10 +269,26 @@
             var y = dateValue.getFullYear();
             var dateString = '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d);
 
+            var media_type = null;
+            var transcode_decision = null;
+            switch(selectedSeries) {
+                case "TV": media_type = 'episode'; break;
+                case "Movies": media_type = 'movie'; break;
+                case "Music": media_type = 'track'; break;
+                case "Direct Play": transcode_decision = 'direct play'; break;
+                case "Direct Stream": transcode_decision = 'copy'; break;
+                case "Transcode": transcode_decision = 'transcode'; break;
+            }
+            
             $.ajax({
-                "url": "history_table_modal",
+                url: "history_table_modal",
                 type: 'post',
-                data:  { 'start_date': dateString },
+                data:  {
+                    user_id: selected_user_id,
+                    start_date: dateString,
+                    media_type: media_type,
+                    transcode_decision: transcode_decision
+                },
                 complete: function(xhr, status) {
                     $('#history-modal').modal('show');
                     $("#history-modal").html(xhr.responseText);
@@ -271,21 +297,21 @@
         }
         catch(err)
         {
-          console.log("Failed to retrieve data");
+          console.log("Failed to retrieve history modal data.");
         }
     }
 </script>
-<script src="interfaces/default/js/graphs/plays_by_day.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_dayofweek.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_hourofday.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_platform.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_user.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_stream_type.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_source_resolution.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_stream_resolution.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_platform_by_stream_type.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_user_by_stream_type.js"></script>
-<script src="interfaces/default/js/graphs/plays_by_month.js"></script>
+<script src="${http_root}js/graphs/plays_by_day.js"></script>
+<script src="${http_root}js/graphs/plays_by_dayofweek.js"></script>
+<script src="${http_root}js/graphs/plays_by_hourofday.js"></script>
+<script src="${http_root}js/graphs/plays_by_platform.js"></script>
+<script src="${http_root}js/graphs/plays_by_user.js"></script>
+<script src="${http_root}js/graphs/plays_by_stream_type.js"></script>
+<script src="${http_root}js/graphs/plays_by_source_resolution.js"></script>
+<script src="${http_root}js/graphs/plays_by_stream_resolution.js"></script>
+<script src="${http_root}js/graphs/plays_by_platform_by_stream_type.js"></script>
+<script src="${http_root}js/graphs/plays_by_user_by_stream_type.js"></script>
+<script src="${http_root}js/graphs/plays_by_month.js"></script>
 <script>
     $(document).ready(function () {
 
@@ -295,31 +321,60 @@
         var current_tab = "${'#' + config['graph_tab']}";
         
         $('.days').html(current_range);
+        
+        // Load user ids and names (for the selector)
+        $.ajax({
+            url: 'get_user_names',
+            type: 'get',
+            dataType: "json",
+            success: function (data) {
+                var select = $('#graph-user');
+                data.sort(function(a, b) {
+                    return a.friendly_name.localeCompare(b.friendly_name);
+                });
+                data.forEach(function(item) {
+                    select.append('<option value="' + item.user_id + '">' +
+                        item.friendly_name + '</option>');
+                });
+            }
+        });
+
 
         var music_visible = (${config['music_logging_enable']} == 1 ? true : false);
+        
+        function dataSecondsToHours(data) {
+            $.each(data.series, function (i, series) {
+                series.data = $.map(series.data, function (value) {
+                    return value / 60 / 60;
+                });
+            });
+        }
 
         function loadGraphsTab1(time_range, yaxis) {
+            $('#days-selection').show();
+
             setGraphFormat(yaxis);
 
             $.ajax({
                 url: "get_plays_by_date",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
                     var dateArray = [];
-                    for (var i = 0; i < data.categories.length; i++) {
-                        dateArray.push(moment(data.categories[i], 'YYYY-MM-DD').valueOf());
+                    $.each(data.categories, function (i, day) {
+                        dateArray.push(moment(day, 'YYYY-MM-DD').valueOf());
                         // Highlight the weekend
-                        if ((moment(data.categories[i], 'YYYY-MM-DD').format('ddd') == 'Sat') ||
-                            (moment(data.categories[i], 'YYYY-MM-DD').format('ddd') == 'Sun')) {
+                        if ((moment(day, 'YYYY-MM-DD').format('ddd') == 'Sat') ||
+                            (moment(day, 'YYYY-MM-DD').format('ddd') == 'Sun')) {
                             hc_plays_by_day_options.xAxis.plotBands.push({
                                 from: i-0.5,
                                 to: i+0.5,
                                 color: 'rgba(80,80,80,0.3)'
                             });
                         }
-                    }
+                    });
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_day_options.yAxis.min = 0;
                     hc_plays_by_day_options.xAxis.categories = dateArray;
                     hc_plays_by_day_options.series = data.series;
@@ -331,9 +386,10 @@
             $.ajax({
                 url: "get_plays_by_dayofweek",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_dayofweek_options.xAxis.categories = data.categories;
                     hc_plays_by_dayofweek_options.series = data.series;
                     hc_plays_by_dayofweek_options.series[2].visible = music_visible;
@@ -344,9 +400,10 @@
             $.ajax({
                 url: "get_plays_by_hourofday",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_hourofday_options.xAxis.categories = data.categories;
                     hc_plays_by_hourofday_options.series = data.series;
                     hc_plays_by_hourofday_options.series[2].visible = music_visible;
@@ -357,9 +414,10 @@
             $.ajax({
                 url: "get_plays_by_top_10_platforms",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_platform_options.xAxis.categories = data.categories;
                     hc_plays_by_platform_options.series = data.series;
                     hc_plays_by_platform_options.series[2].visible = music_visible;
@@ -370,9 +428,10 @@
             $.ajax({
                 url: "get_plays_by_top_10_users",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id  },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_user_options.xAxis.categories = data.categories;
                     hc_plays_by_user_options.series = data.series;
                     hc_plays_by_user_options.series[2].visible = music_visible;
@@ -382,27 +441,30 @@
         }
 
         function loadGraphsTab2(time_range, yaxis) {
+            $('#days-selection').show();
+
             setGraphFormat(yaxis);
 
             $.ajax({
                 url: "get_plays_by_stream_type",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
                     var dateArray = [];
-                    for (var i = 0; i < data.categories.length; i++) {
-                        dateArray.push(moment(data.categories[i], 'YYYY-MM-DD').valueOf());
+                    $.each(data.categories, function (i, day) {
+                        dateArray.push(moment(day, 'YYYY-MM-DD').valueOf());
                         // Highlight the weekend
-                        if ((moment(data.categories[i], 'YYYY-MM-DD').format('ddd') == 'Sat') ||
-                            (moment(data.categories[i], 'YYYY-MM-DD').format('ddd') == 'Sun')) {
-                            hc_plays_by_stream_type_options.xAxis.plotBands.push({
+                        if ((moment(day, 'YYYY-MM-DD').format('ddd') == 'Sat') ||
+                            (moment(day, 'YYYY-MM-DD').format('ddd') == 'Sun')) {
+                            hc_plays_by_day_options.xAxis.plotBands.push({
                                 from: i-0.5,
                                 to: i+0.5,
                                 color: 'rgba(80,80,80,0.3)'
                             });
                         }
-                    }
+                    });
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_stream_type_options.yAxis.min = 0;
                     hc_plays_by_stream_type_options.xAxis.categories = dateArray;
                     hc_plays_by_stream_type_options.series = data.series;
@@ -413,9 +475,10 @@
             $.ajax({
                 url: "get_plays_by_source_resolution",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_source_resolution_options.xAxis.categories = data.categories;
                     hc_plays_by_source_resolution_options.series = data.series;
                     var hc_plays_by_source_resolution = new Highcharts.Chart(hc_plays_by_source_resolution_options);
@@ -425,9 +488,10 @@
             $.ajax({
                 url: "get_plays_by_stream_resolution",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_stream_resolution_options.xAxis.categories = data.categories;
                     hc_plays_by_stream_resolution_options.series = data.series;
                     var hc_plays_by_stream_resolution = new Highcharts.Chart(hc_plays_by_stream_resolution_options);
@@ -437,9 +501,10 @@
             $.ajax({
                 url: "get_stream_type_by_top_10_platforms",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_platform_by_stream_type_options.xAxis.categories = data.categories;
                     hc_plays_by_platform_by_stream_type_options.series = data.series;
                     var hc_plays_by_platform_by_stream_type = new Highcharts.Chart(hc_plays_by_platform_by_stream_type_options);
@@ -449,9 +514,10 @@
             $.ajax({
                 url: "get_stream_type_by_top_10_users",
                 type: 'get',
-                data: { time_range: time_range, y_axis: yaxis },
+                data: { time_range: time_range, y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_user_by_stream_type_options.xAxis.categories = data.categories;
                     hc_plays_by_user_by_stream_type_options.series = data.series;
                     var hc_plays_by_user_by_stream_type = new Highcharts.Chart(hc_plays_by_user_by_stream_type_options);
@@ -460,14 +526,17 @@
         }
 
         function loadGraphsTab3(yaxis) {
+            $('#days-selection').hide();
+
             setGraphFormat(yaxis);
 
             $.ajax({
                 url: "get_plays_per_month",
                 type: 'get',
-                data: { y_axis: yaxis },
+                data: { y_axis: yaxis, user_id: selected_user_id },
                 dataType: "json",
                 success: function(data) {
+                    if (yaxis === 'duration') { dataSecondsToHours(data); }
                     hc_plays_by_month_options.yAxis.min = 0;
                     hc_plays_by_month_options.xAxis.categories = data.categories;
                     hc_plays_by_month_options.series = data.series;
@@ -535,6 +604,14 @@
             });
         });
 
+        // User changed
+        $('#graph-user').on('change', function() {
+            selected_user_id = $(this).val() || null;
+            if (current_tab == '#tabs-1') { loadGraphsTab1(current_range, yaxis); }
+            if (current_tab == '#tabs-2') { loadGraphsTab2(current_range, yaxis); }
+            if (current_tab == '#tabs-3') { loadGraphsTab3(yaxis); }
+        });
+        
         // Y-axis changed
         $('#yaxis-selection').on('change', function() {
             yaxis = $('input[name=yaxis-options]:checked', '#yaxis-selection').val();
@@ -552,56 +629,55 @@
             if (type === 'plays') {
                 yaxis_format = function() { return this.value; };
                 tooltip_format = function() {
-                                    if (moment(this.x, 'X').isValid() && (this.x > 946684800)) {
-                                        var s = '<b>'+ moment(this.x).format("ddd MMM D") +'</b>';
-                                    } else {
-                                        var s = '<b>'+ this.x +'</b>';
-                                    }
-                                    if (this.points.length > 1) {
-                                        var total = 0;
-                                        $.each(this.points, function(i, point) {
-                                            s += '<br/>'+point.series.name+': '+point.y;
-                                            total += point.y;
-                                        });
-                                        s += '<br><b>Total: '+total+'</b>';
-                                    } else {
-                                        $.each(this.points, function(i, point) {
-                                            s += '<br/>'+point.series.name+': '+point.y;
-                                        });
-                                    }
-                                    return s;
-                                 }
+                    if (moment(this.x, 'X').isValid() && (this.x > 946684800)) {
+                        var s = '<b>'+ moment(this.x).format('ddd MMM D') +'</b>';
+                    } else {
+                        var s = '<b>'+ this.x +'</b>';
+                    }
+                    if (this.points.length > 1) {
+                        var total = 0;
+                        $.each(this.points, function(i, point) {
+                            s += '<br/>'+point.series.name+': '+point.y;
+                            total += point.y;
+                        });
+                        s += '<br><b>Total: '+total+'</b>';
+                    } else {
+                        $.each(this.points, function(i, point) {
+                            s += '<br/>'+point.series.name+': '+point.y;
+                        });
+                    }
+                    return s;
+                }
                 stack_labels_format = function() {
-                                          return this.total;
-                                      }
-
+                    return this.total;
+                }
                 $('.yaxis-text').html('Play count');
             } else {
-                yaxis_format = function() { return moment.duration(this.value, 'seconds').format("m [mins]"); };
+                yaxis_format = function() { return moment.duration(this.value, 'hours').format('H [h] m [m]'); };
                 tooltip_format = function() {
-                                    if (moment(this.x, 'X').isValid() && (this.x > 946684800)) {
-                                        var s = '<b>'+ moment(this.x).format("ddd MMM D") +'</b>';
-                                    } else {
-                                        var s = '<b>'+ this.x +'</b>';
-                                    }
-                                    if (this.points.length > 1) {
-                                        var total = 0;
-                                        $.each(this.points, function(i, point) {
-                                            s += '<br/>'+point.series.name+': '+moment.duration(point.y, 'seconds').format('D [days] H [hrs] m [mins]');
-                                            total += point.y;
-                                        });
-                                        s += '<br/><b>Total: '+moment.duration(total, 'seconds').format('D [days] H [hrs] m [mins]')+'</b>';
-                                    } else {
-                                        $.each(this.points, function(i, point) {
-                                            s += '<br/>'+point.series.name+': '+moment.duration(point.y, 'seconds').format('D [days] H [hrs] m [mins]');
-                                        });
-                                    }
-                                    return s;
-                                 }
+                    if (moment(this.x, 'X').isValid() && (this.x > 946684800)) {
+                        var s = '<b>'+ moment(this.x).format('ddd MMM D') +'</b>';
+                    } else {
+                        var s = '<b>'+ this.x +'</b>';
+                    }
+                    if (this.points.length > 1) {
+                        var total = 0;
+                        $.each(this.points, function(i, point) {
+                            s += '<br/>'+point.series.name+': '+moment.duration(point.y, 'hours').format('D [days] H [hrs] m [mins]');
+                            total += point.y;
+                        });
+                        s += '<br/><b>Total: '+moment.duration(total, 'hours').format('D [days] H [hrs] m [mins]')+'</b>';
+                    } else {
+                        $.each(this.points, function(i, point) {
+                            s += '<br/>'+point.series.name+': '+moment.duration(point.y, 'hours').format('D [days] H [hrs] m [mins]');
+                        });
+                    }
+                    return s;
+                }
                 stack_labels_format = function() {
-                                          var s = moment.duration(this.total, 'seconds').format("H [hrs] m [mins]");
-                                          return s;
-                                      }
+                    var s = moment.duration(this.total, 'hours').format('H [h] m [m]');
+                    return s;
+                }
                 $('.yaxis-text').html('Play duration');
             }
 

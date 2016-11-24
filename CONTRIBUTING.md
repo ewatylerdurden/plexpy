@@ -1,12 +1,45 @@
 # Contributing to PlexPy
 
 ## Issues
-In case you read this because you are posting an issue, please take a minute and conside the things below. The issue tracker is not a support forum. It is primarily intended to submit bugs, improvements or feature requests. However, we are glad to help you, and make sure the problem is not caused by PlexPy, but don't expect step-by-step answers.
+In case you read this because you are posting an issue, please take a minute and conside the things below. The issue tracker is not a support forum. It is primarily intended to submit bugs. However, we are glad to help you, and make sure the problem is not caused by PlexPy, but don't expect step-by-step answers.
 
-* Use the search function. Chances are that your problem is already discussed. Do not append to (closed) issues if your problem does not fit the discussion.
-* Visit the [Troubleshooting](../../wiki/TroubleShooting) wiki first.
-* Use [proper formatting](https://help.github.com/articles/github-flavored-markdown/). Paste your logs in code blocks.
-* Close your issue if you resolved it.
+##### Many issues can simply be solved by:
+
+- Making sure you update to the latest version. 
+- Turning your device off and on again.
+- Analyzing your logs, you just might find the solution yourself!
+- Using the **search** function to see if this issue has already been reported/solved.
+- Checking the [Wiki](https://github.com/JonnyWong16/plexpy/wiki) for 
+[ [Installation] ](https://github.com/JonnyWong16/plexpy/wiki/Installation) and 
+[ [FAQs] ](https://github.com/JonnyWong16/plexpy/wiki/Frequently-Asked-Questions-(FAQ)).
+- For basic questions try asking on [Gitter](https://gitter.im/plexpy/general) or the [Plex Forums](https://forums.plex.tv/discussion/169591/plexpy-another-plex-monitoring-program) first before opening an issue.
+
+##### If nothing has worked:
+
+1. Open a new issue on the GitHub [issue tracker](http://github.com/JonnyWong16/plexpy/issues).
+2. Provide a clear title to easily help identify your problem.
+3. Use proper [markdown syntax](https://help.github.com/articles/github-flavored-markdown) to structure your post (i.e. code/log in code blocks).
+4. Make sure you provide the following information:
+    - [ ] Version
+    - [ ] Branch
+    - [ ] Commit hash
+    - [ ] Operating system
+    - [ ] Python version
+    - [ ] What you did?
+    - [ ] What happened?
+    - [ ] What you expected?
+    - [ ] How can we reproduce your issue?
+    - [ ] What are your (relevant) settings?
+    - [ ] Include a link to your **FULL** (not just a few lines!) log file that has the error. Please use [Gist](http://gist.github.com) or [Pastebin](http://pastebin.com/).
+5. Close your issue when it's solved! If you found the solution yourself please comment so that others benefit from it.
+
+## Feature Requests
+
+Feature requests are handled on [FeatHub](http://feathub.com/JonnyWong16/plexpy).
+
+1. Search the existing requests to see if your suggestion has already been submitted.
+2. If a similar request exists, give it a thumbs up (+1), or add additional comments to the request.
+3. If no similar requests exist, you can create a new one. Make sure to provide a clear title to easily identify the feature request.
 
 ## Pull Requests
 If you think you can contribute code to the PlexPy repository, do not hesitate to submit a pull request.

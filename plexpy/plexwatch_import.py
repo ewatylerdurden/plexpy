@@ -14,11 +14,17 @@
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlite3
-
-from plexpy import logger, helpers, activity_pinger, activity_processor, users, plextv
 from xml.dom import minidom
 
 import plexpy
+import activity_pinger
+import activity_processor
+import database
+import helpers
+import logger
+import plextv
+import users
+
 
 def extract_plexwatch_xml(xml=None):
     output = {}
@@ -26,12 +32,12 @@ def extract_plexwatch_xml(xml=None):
     try:
         xml_parse = minidom.parseString(clean_xml)
     except:
-        logger.warn("Error parsing XML for Plexwatch database.")
+        logger.warn(u"PlexPy Importer :: Error parsing XML for PlexWatch database.")
         return None
 
     xml_head = xml_parse.getElementsByTagName('opt')
     if not xml_head:
-        logger.warn("Error parsing XML for Plexwatch database.")
+        logger.warn(u"PlexPy Importer :: Error parsing XML for PlexWatch database.")
         return None
 
     for a in xml_head:
@@ -41,6 +47,7 @@ def extract_plexwatch_xml(xml=None):
         grandparent_thumb = helpers.get_xml_attr(a, 'grandparentThumb')
         grandparent_title = helpers.get_xml_attr(a, 'grandparentTitle')
         guid = helpers.get_xml_attr(a, 'guid')
+        section_id = helpers.get_xml_attr(a, 'librarySectionID')
         media_index = helpers.get_xml_attr(a, 'index')
         originally_available_at = helpers.get_xml_attr(a, 'originallyAvailableAt')
         last_viewed_at = helpers.get_xml_attr(a, 'lastViewedAt')
@@ -95,6 +102,7 @@ def extract_plexwatch_xml(xml=None):
         if a.getElementsByTagName('Player'):
             player_elem = a.getElementsByTagName('Player')
             for d in player_elem:
+                ip_address = helpers.get_xml_attr(d, 'address')
                 machine_id = helpers.get_xml_attr(d, 'machineIdentifier')
                 platform = helpers.get_xml_attr(d, 'platform')
                 player = helpers.get_xml_attr(d, 'title')
@@ -122,6 +130,14 @@ def extract_plexwatch_xml(xml=None):
                 video_decision = helpers.get_xml_attr(e, 'videoDecision')
                 transcode_width = helpers.get_xml_attr(e, 'width')
 
+        # Generate a combined transcode decision value
+        if video_decision == 'transcode' or audio_decision == 'transcode':
+            transcode_decision = 'transcode'
+        elif video_decision == 'copy' or audio_decision == 'copy':
+            transcode_decision = 'copy'
+        else:
+            transcode_decision = 'direct play'
+
         user_id = None
 
         if a.getElementsByTagName('User'):
@@ -147,6 +163,12 @@ def extract_plexwatch_xml(xml=None):
             for i in genre_elem:
                 genres.append(helpers.get_xml_attr(i, 'tag'))
 
+        labels = []
+        if a.getElementsByTagName('Lables'):
+            label_elem = a.getElementsByTagName('Lables')
+            for i in label_elem:
+                labels.append(helpers.get_xml_attr(i, 'tag'))
+
         output = {'added_at': added_at,
                   'art': art,
                   'duration': duration,
@@ -156,6 +178,7 @@ def extract_plexwatch_xml(xml=None):
                   'title': title,
                   'tagline': tagline,
                   'guid': guid,
+                  'section_id': section_id,
                   'media_index': media_index,
                   'originally_available_at': originally_available_at,
                   'last_viewed_at': last_viewed_at,
@@ -178,6 +201,7 @@ def extract_plexwatch_xml(xml=None):
                   'video_framerate': video_framerate,
                   'video_resolution': video_resolution,
                   'width': width,
+                  'ip_address': ip_address,
                   'machine_id': machine_id,
                   'platform': platform,
                   'player': player,
@@ -190,11 +214,13 @@ def extract_plexwatch_xml(xml=None):
                   'transcode_video_codec': transcode_video_codec,
                   'video_decision': video_decision,
                   'transcode_width': transcode_width,
+                  'transcode_decision': transcode_decision,
                   'user_id': user_id,
                   'writers': writers,
                   'actors': actors,
                   'genres': genres,
-                  'studio': studio
+                  'studio': studio,
+                  'labels': labels
                   }
 
     return output
@@ -203,23 +229,23 @@ def validate_database(database=None, table_name=None):
     try:
         connection = sqlite3.connect(database, timeout=20)
     except sqlite3.OperationalError:
-        logger.error('PlexPy Importer :: Invalid database specified.')
+        logger.error(u"PlexPy Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except ValueError:
-        logger.error('PlexPy Importer :: Invalid database specified.')
+        logger.error(u"PlexPy Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except:
-        logger.error('PlexPy Importer :: Uncaught exception.')
+        logger.error(u"PlexPy Importer :: Uncaught exception.")
         return 'Uncaught exception.'
 
     try:
         connection.execute('SELECT ratingKey from %s' % table_name)
         connection.close()
     except sqlite3.OperationalError:
-        logger.error('PlexPy Importer :: Invalid database specified.')
+        logger.error(u"PlexPy Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except:
-        logger.error('PlexPy Importer :: Uncaught exception.')
+        logger.error(u"PlexPy Importer :: Uncaught exception.")
         return 'Uncaught exception.'
 
     return 'success'
@@ -230,16 +256,16 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
         connection = sqlite3.connect(database, timeout=20)
         connection.row_factory = sqlite3.Row
     except sqlite3.OperationalError:
-        logger.error('PlexPy Importer :: Invalid filename.')
+        logger.error(u"PlexPy Importer :: Invalid filename.")
         return None
     except ValueError:
-        logger.error('PlexPy Importer :: Invalid filename.')
+        logger.error(u"PlexPy Importer :: Invalid filename.")
         return None
 
     try:
         connection.execute('SELECT ratingKey from %s' % table_name)
     except sqlite3.OperationalError:
-        logger.error('PlexPy Importer :: Database specified does not contain the required fields.')
+        logger.error(u"PlexPy Importer :: Database specified does not contain the required fields.")
         return None
 
     logger.debug(u"PlexPy Importer :: PlexWatch data import in progress...")
@@ -248,6 +274,8 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
     plexpy.schedule_job(activity_pinger.check_active_sessions, 'Check for active sessions',
                         hours=0, minutes=0, seconds=0)
     plexpy.schedule_job(activity_pinger.check_recently_added, 'Check for recently added items',
+                        hours=0, minutes=0, seconds=0)
+    plexpy.schedule_job(activity_pinger.check_server_response, 'Check for Plex remote access',
                         hours=0, minutes=0, seconds=0)
 
     ap = activity_processor.ActivityProcessor()
@@ -298,7 +326,7 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
 
         # Skip line if we don't have a ratingKey to work with
         if not row['rating_key']:
-            logger.error(u"PlexPy Importer :: Skipping record due to null ratingRey.")
+            logger.error(u"PlexPy Importer :: Skipping record due to null ratingKey.")
             continue
 
         # If the user_id no longer exists in the friends list, pull it from the xml.
@@ -313,9 +341,10 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
                            'title': row['title'],
                            'parent_title': extracted_xml['parent_title'],
                            'grandparent_title': row['grandparent_title'],
+                           'full_title': row['full_title'],
                            'user_id': user_id,
                            'user': row['user'],
-                           'ip_address': row['ip_address'],
+                           'ip_address': row['ip_address'] if row['ip_address'] else extracted_xml['ip_address'],
                            'paused_counter': row['paused_counter'],
                            'player': row['player'],
                            'platform': extracted_xml['platform'],
@@ -326,6 +355,7 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
                            'view_offset': extracted_xml['view_offset'],
                            'video_decision': extracted_xml['video_decision'],
                            'audio_decision': extracted_xml['audio_decision'],
+                           'transcode_decision': extracted_xml['transcode_decision'],
                            'duration': extracted_xml['duration'],
                            'width': extracted_xml['width'],
                            'height': extracted_xml['height'],
@@ -352,8 +382,8 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
                                     'title': row['title'],
                                     'parent_title': extracted_xml['parent_title'],
                                     'grandparent_title': row['grandparent_title'],
-                                    'index': extracted_xml['media_index'],
-                                    'parent_index': extracted_xml['parent_media_index'],
+                                    'media_index': extracted_xml['media_index'],
+                                    'parent_media_index': extracted_xml['parent_media_index'],
                                     'thumb': extracted_xml['thumb'],
                                     'parent_thumb': extracted_xml['parent_thumb'],
                                     'grandparent_thumb': extracted_xml['grandparent_thumb'],
@@ -370,11 +400,13 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
                                     'rating': extracted_xml['rating'],
                                     'duration': extracted_xml['duration'],
                                     'guid': extracted_xml['guid'],
+                                    'section_id': extracted_xml['section_id'],
                                     'directors': extracted_xml['directors'],
                                     'writers': extracted_xml['writers'],
                                     'actors': extracted_xml['actors'],
                                     'genres': extracted_xml['genres'],
                                     'studio': extracted_xml['studio'],
+                                    'labels': extracted_xml['labels'],
                                     'full_title': row['full_title']
                                     }
 
@@ -395,8 +427,6 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
     plexpy.initialize_scheduler()
 
 def import_users():
-    from plexpy import database
-
     logger.debug(u"PlexPy Importer :: Importing PlexWatch Users...")
     monitor_db = database.MonitorDatabase()
 
@@ -409,4 +439,3 @@ def import_users():
         logger.debug(u"PlexPy Importer :: Users imported.")
     except:
         logger.debug(u"PlexPy Importer :: Failed to import users.")
-

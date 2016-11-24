@@ -13,22 +13,66 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from operator import itemgetter
-from xml.dom import minidom
-
-import unicodedata
-import plexpy
+import base64
 import datetime
-import fnmatch
-import shutil
-import time
-import sys
-import re
-import os
+from functools import wraps
+import geoip2.database, geoip2.errors
+import gzip
+import hashlib
+import imghdr
+import ipwhois, ipwhois.exceptions, ipwhois.utils
+from IPy import IP
 import json
-import xmltodict
 import math
+import maxminddb
+from operator import itemgetter
+import os
+import re
+import socket
+import sys
+import time
+import unicodedata
+import urllib, urllib2
+from xml.dom import minidom
+import xmltodict
 
+import plexpy
+import logger
+from plexpy.api2 import API2
+
+
+def addtoapi(*dargs, **dkwargs):
+    """ Helper decorator that adds function to the API class.
+        is used to reuse as much code as possible
+
+        args:
+            dargs: (string, optional) Used to rename a function
+
+        Example:
+            @addtoapi("i_was_renamed", "im_a_second_alias")
+            @addtoapi()
+
+    """
+    def rd(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        if dargs:
+            # To rename the function if it sucks.. and
+            # allow compat with old api.
+            for n in dargs:
+                if function.__doc__ and len(function.__doc__):
+                    function.__doc__ = function.__doc__.strip()
+                setattr(API2, n, function)
+            return wrapper
+
+        if function.__doc__ and len(function.__doc__):
+            function.__doc__ = function.__doc__.strip()
+        setattr(API2, function.__name__, function)
+        return wrapper
+
+    return rd
 
 def multikeysort(items, columns):
     comparers = [((itemgetter(col[1:].strip()), -1) if col.startswith('-') else (itemgetter(col.strip()), 1)) for col in columns]
@@ -135,6 +179,15 @@ def convert_seconds(s):
 
     return minutes
 
+def convert_seconds_to_minutes(s):
+
+    if str(s).isdigit():
+        minutes = round(float(s) / 60, 0)
+
+        return math.trunc(minutes)
+
+    return 0
+
 
 def today():
     today = datetime.date.today()
@@ -150,7 +203,7 @@ def human_duration(s, sig='dhms'):
 
     hd = ''
 
-    if str(s).isdigit():
+    if str(s).isdigit() and s > 0:
         d = int(s / 84600)
         h = int((s % 84600) / 3600)
         m = int(((s % 84600) % 3600) / 60)
@@ -164,7 +217,7 @@ def human_duration(s, sig='dhms'):
         if sig >= 'dh' and h > 0:
             h = h + 1 if sig == 'dh' and m >= 30 else h
             hd_list.append(str(h) + ' hrs')
-            
+
         if sig >= 'dhm' and m > 0:
             m = m + 1 if sig == 'dhm' and s >= 30 else m
             hd_list.append(str(m) + ' mins')
@@ -173,6 +226,8 @@ def human_duration(s, sig='dhms'):
             hd_list.append(str(s) + ' secs')
 
         hd = ' '.join(hd_list)
+    else:
+        hd = '0'
 
     return hd
 
@@ -330,33 +385,30 @@ def split_string(mystring, splitvar=','):
 
 def create_https_certificates(ssl_cert, ssl_key):
     """
-    Create a pair of self-signed HTTPS certificares and store in them in
+    Create a self-signed HTTPS certificate and store in it in
     'ssl_cert' and 'ssl_key'. Method assumes pyOpenSSL is installed.
 
     This code is stolen from SickBeard (http://github.com/midgetspy/Sick-Beard).
     """
-
-    from plexpy import logger
-
     from OpenSSL import crypto
-    from certgen import createKeyPair, createCertRequest, createCertificate, \
-        TYPE_RSA, serial
+    from certgen import createKeyPair, createSelfSignedCertificate, TYPE_RSA
 
-    # Create the CA Certificate
-    cakey = createKeyPair(TYPE_RSA, 2048)
-    careq = createCertRequest(cakey, CN="Certificate Authority")
-    cacert = createCertificate(careq, (careq, cakey), serial, (0, 60 * 60 * 24 * 365 * 10)) # ten years
+    serial = int(time.time())
+    domains = ['DNS:' + d.strip() for d in plexpy.CONFIG.HTTPS_DOMAIN.split(',') if d]
+    ips = ['IP:' + d.strip() for d in plexpy.CONFIG.HTTPS_IP.split(',') if d]
+    altNames = ','.join(domains + ips)
 
+    # Create the self-signed PlexPy certificate
+    logger.debug(u"Generating self-signed SSL certificate.")
     pkey = createKeyPair(TYPE_RSA, 2048)
-    req = createCertRequest(pkey, CN="PlexPy")
-    cert = createCertificate(req, (cacert, cakey), serial, (0, 60 * 60 * 24 * 365 * 10)) # ten years
+    cert = createSelfSignedCertificate(("PlexPy", pkey), serial, (0, 60 * 60 * 24 * 365 * 10), altNames) # ten years
 
     # Save the key and certificate to disk
     try:
-        with open(ssl_key, "w") as fp:
-            fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
         with open(ssl_cert, "w") as fp:
             fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        with open(ssl_key, "w") as fp:
+            fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
     except IOError as e:
         logger.error("Error creating SSL key and certificate: %s", e)
         return False
@@ -364,12 +416,17 @@ def create_https_certificates(ssl_cert, ssl_key):
     return True
 
 
+def cast_to_int(s):
+    try:
+        return int(s)
+    except (ValueError, TypeError):
+        return 0
+
 def cast_to_float(s):
     try:
         return float(s)
-    except ValueError:
-        return -1
-
+    except (ValueError, TypeError):
+        return 0
 
 def convert_xml_to_json(xml):
     o = xmltodict.parse(xml)
@@ -397,13 +454,11 @@ def get_percent(value1, value2):
     return math.trunc(percent)
 
 def parse_xml(unparsed=None):
-    from plexpy import logger
-
     if unparsed:
         try:
             xml_parse = minidom.parseString(unparsed)
             return xml_parse
-        except Exception, e:
+        except Exception as e:
             logger.warn("Error parsing XML. %s" % e)
             return []
         except:
@@ -440,3 +495,281 @@ def sanitize(string):
         return unicode(string).replace('<','&lt;').replace('>','&gt;')
     else:
         return ''
+
+def is_ip_public(host):
+    ip_address = get_ip(host)
+    ip = IP(ip_address)
+    if ip.iptype() == 'PUBLIC':
+        return True
+
+    return False
+
+def get_ip(host):
+    ip_address = ''
+    try:
+        socket.inet_aton(host)
+        ip_address = host
+    except socket.error:
+        try:
+            ip_address = socket.gethostbyname(host)
+            logger.debug(u"IP Checker :: Resolved %s to %s." % (host, ip_address))
+        except:
+            logger.error(u"IP Checker :: Bad IP or hostname provided.")
+
+    return ip_address
+
+def install_geoip_db():
+    maxmind_url = 'http://geolite.maxmind.com/download/geoip/database/'
+    geolite2_gz = 'GeoLite2-City.mmdb.gz'
+    geolite2_md5 = 'GeoLite2-City.md5'
+    geolite2_db = geolite2_gz[:-3]
+    md5_checksum = ''
+
+    temp_gz = os.path.join(plexpy.CONFIG.CACHE_DIR, geolite2_gz)
+    geolite2_db = plexpy.CONFIG.GEOIP_DB or os.path.join(plexpy.DATA_DIR, geolite2_db)
+
+    # Retrieve the GeoLite2 gzip file
+    logger.debug(u"PlexPy Helpers :: Downloading GeoLite2 gzip file from MaxMind...")
+    try:
+        maxmind = urllib.URLopener()
+        maxmind.retrieve(maxmind_url + geolite2_gz, temp_gz)
+        md5_checksum = urllib2.urlopen(maxmind_url + geolite2_md5).read()
+    except Exception as e:
+        logger.error(u"PlexPy Helpers :: Failed to download GeoLite2 gzip file from MaxMind: %s" % e)
+        return False
+
+    # Extract the GeoLite2 database file
+    logger.debug(u"PlexPy Helpers :: Extracting GeoLite2 database...")
+    try:
+        with gzip.open(temp_gz, 'rb') as gz:
+            with open(geolite2_db, 'wb') as db:
+                db.write(gz.read())
+    except Exception as e:
+        logger.error(u"PlexPy Helpers :: Failed to extract the GeoLite2 database: %s" % e)
+        return False
+
+    # Check MD5 hash for GeoLite2 database file
+    logger.debug(u"PlexPy Helpers :: Checking MD5 checksum for GeoLite2 database...")
+    try:
+        hash_md5 = hashlib.md5()
+        with open(geolite2_db, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        md5_hash = hash_md5.hexdigest()
+
+        if md5_hash != md5_checksum:
+            logger.error(u"PlexPy Helpers :: MD5 checksum doesn't match for GeoLite2 database. "
+                         "Checksum: %s, file hash: %s" % (md5_checksum, md5_hash))
+            return False
+    except Exception as e:
+        logger.error(u"PlexPy Helpers :: Failed to generate MD5 checksum for GeoLite2 database: %s" % e)
+        return False
+
+    # Delete temportary GeoLite2 gzip file
+    logger.debug(u"PlexPy Helpers :: Deleting temporary GeoLite2 gzip file...")
+    try:
+        os.remove(temp_gz)
+    except Exception as e:
+        logger.warn(u"PlexPy Helpers :: Failed to remove temporary GeoLite2 gzip file: %s" % e)
+
+    logger.debug(u"PlexPy Helpers :: GeoLite2 database installed successfully.")
+    plexpy.CONFIG.__setattr__('GEOIP_DB', geolite2_db)
+    plexpy.CONFIG.write()
+
+    return True
+
+def uninstall_geoip_db():
+    logger.debug(u"PlexPy Helpers :: Uninstalling the GeoLite2 database...")
+    try:
+        os.remove(plexpy.CONFIG.GEOIP_DB)
+        plexpy.CONFIG.__setattr__('GEOIP_DB', '')
+        plexpy.CONFIG.write()
+    except Exception as e:
+        logger.error(u"PlexPy Helpers :: Failed to uninstall the GeoLite2 database: %s" % e)
+        return False
+
+    logger.debug(u"PlexPy Helpers :: GeoLite2 database uninstalled successfully.")
+    return True
+
+def geoip_lookup(ip_address):
+    if not plexpy.CONFIG.GEOIP_DB:
+        return 'GeoLite2 database not installed. Please install from the ' \
+            '<a href="settings?install_geoip=true">Settings</a> page.'
+
+    if not ip_address:
+        return 'No IP address provided.'
+
+    try:
+        reader = geoip2.database.Reader(plexpy.CONFIG.GEOIP_DB)
+        geo = reader.city(ip_address)
+        reader.close()
+    except ValueError as e:
+        return 'Invalid IP address provided: %s.' % ip_address
+    except IOError as e:
+        return 'Missing GeoLite2 database. Please reinstall from the ' \
+            '<a href="settings?install_geoip=true">Settings</a> page.'
+    except maxminddb.InvalidDatabaseError as e:
+        return 'Invalid GeoLite2 database. Please reinstall from the ' \
+            '<a href="settings?reinstall_geoip=true">Settings</a> page.'
+    except geoip2.errors.AddressNotFoundError as e:
+        return '%s' % e
+    except Exception as e:
+        return 'Error: %s' % e
+
+    geo_info = {'continent': geo.continent.name,
+                'country': geo.country.name,
+                'region': geo.subdivisions.most_specific.name,
+                'city': geo.city.name,
+                'postal_code': geo.postal.code,
+                'timezone': geo.location.time_zone,
+                'latitude': geo.location.latitude,
+                'longitude': geo.location.longitude,
+                'accuracy': geo.location.accuracy_radius
+                }
+
+    return geo_info
+
+def whois_lookup(ip_address):
+
+    nets = []
+    err = None
+    try:
+        whois = ipwhois.IPWhois(ip_address).lookup_whois(retry_count=0)
+        countries = ipwhois.utils.get_countries()
+        nets = whois['nets']
+        for net in nets:
+            net['country'] = countries[net['country']]
+            if net['postal_code']:
+                 net['postal_code'] = net['postal_code'].replace('-', ' ')
+    except ValueError as e:
+        err = 'Invalid IP address provided: %s.' % ip_address
+    except ipwhois.exceptions.IPDefinedError as e:
+        err = '%s' % e
+    except ipwhois.exceptions.ASNRegistryError as e:
+        err = '%s' % e
+    except Exception as e:
+        err = 'Error: %s' % e
+
+    host = ''
+    try:
+        host = ipwhois.Net(ip_address).get_host(retry_count=0)[0]
+    except Exception as e:
+        host = 'Not available'
+
+    whois_info = {"host": host,
+                  "nets": nets
+                  }
+
+    if err:
+        whois_info['error'] = err
+
+    return whois_info
+
+# Taken from SickRage
+def anon_url(*url):
+    """
+    Return a URL string consisting of the Anonymous redirect URL and an arbitrary number of values appended.
+    """
+    return '' if None in url else '%s%s' % (plexpy.CONFIG.ANON_REDIRECT, ''.join(str(s) for s in url))
+
+def uploadToImgur(imgPath, imgTitle=''):
+    """ Uploads an image to Imgur """
+    client_id = plexpy.CONFIG.IMGUR_CLIENT_ID
+    img_url = ''
+
+    if not client_id:
+        #logger.error(u"PlexPy Helpers :: Cannot upload poster to Imgur. No Imgur client id specified in the settings.")
+        #return img_url
+        # Fallback to shared client id for now. This will be remove in a future update.
+        logger.warn(u"PlexPy Helpers :: No Imgur client id specified in the settings. Falling back to the shared client id.")
+        logger.warn(u"***** The shared Imgur client id will be removed in a future PlexPy update! "
+                    "Please enter your own client id in the settings to continue uploading posters! *****")
+        client_id = '743b1a443ccd2b0'
+
+    try:
+        with open(imgPath, 'rb') as imgFile:
+            img = imgFile.read()
+    except IOError as e:
+        logger.error(u"PlexPy Helpers :: Unable to read image file for Imgur: %s" % e)
+        return img_url
+
+    headers = {'Authorization': 'Client-ID %s' % client_id}
+    data = {'type': 'base64',
+            'image': base64.b64encode(img)}
+    if imgTitle:
+        data['title'] = imgTitle.encode('utf-8')
+        data['name'] = imgTitle.encode('utf-8') + '.jpg'
+
+    try:
+        request = urllib2.Request('https://api.imgur.com/3/image', headers=headers, data=urllib.urlencode(data))
+        response = urllib2.urlopen(request)
+        response = json.loads(response.read())
+    
+        if response.get('status') == 200:
+            t = '\'' + imgTitle + '\' ' if imgTitle else ''
+            logger.debug(u"PlexPy Helpers :: Image %suploaded to Imgur." % t)
+            img_url = response.get('data').get('link', '')
+        elif response.get('status') >= 400 and response.get('status') < 500:
+            logger.warn(u"PlexPy Helpers :: Unable to upload image to Imgur: %s" % response.reason)
+        else:
+            logger.warn(u"PlexPy Helpers :: Unable to upload image to Imgur.")
+    except (urllib2.HTTPError, urllib2.URLError) as e:
+            logger.warn(u"PlexPy Helpers :: Unable to upload image to Imgur: %s" % e)
+
+    return img_url
+
+def cache_image(url, image=None):
+    """
+    Saves an image to the cache directory.
+    If no image is provided, tries to return the image from the cache directory.
+    """
+    # Create image directory if it doesn't exist
+    imgdir = os.path.join(plexpy.CONFIG.CACHE_DIR, 'images/')
+    if not os.path.exists(imgdir):
+        logger.debug(u"PlexPy Helpers :: Creating image cache directory at %s" % imgdir)
+        os.makedirs(imgdir)
+
+    # Create a hash of the url to use as the filename
+    imghash = hashlib.md5(url).hexdigest()
+    imagefile = os.path.join(imgdir, imghash)
+
+    # If an image is provided, save it to the cache directory
+    if image:
+        try:
+            with open(imagefile, 'wb') as cache_file:
+                cache_file.write(image)
+        except IOError as e:
+            logger.error(u"PlexPy Helpers :: Failed to cache image %s: %s" % (imagefile, e))
+
+    # Try to return the image from the cache directory
+    if os.path.isfile(imagefile):
+        imagetype = 'image/' + imghdr.what(os.path.abspath(imagefile))
+    else:
+        imagefile = None
+        imagetype = 'image/jpeg'
+
+    return imagefile, imagetype
+
+def build_datatables_json(kwargs, dt_columns, default_sort_col=None):
+    """ Builds datatables json data
+
+        dt_columns:    list of tuples [("column name", "orderable", "searchable"), ...]
+    """
+
+    columns = [{"data": c[0], "orderable": c[1], "searchable": c[2]} for c in dt_columns]
+
+    if not default_sort_col:
+        default_sort_col = dt_columns[0][0]
+
+    order_column = [c[0] for c in dt_columns].index(kwargs.pop("order_column", default_sort_col))
+
+    # Build json data
+    json_data = {"draw": 1,
+                    "columns": columns,
+                    "order": [{"column": order_column,
+                            "dir": kwargs.pop("order_dir", "desc")}],
+                    "start": int(kwargs.pop("start", 0)),
+                    "length": int(kwargs.pop("length", 25)),
+                    "search": {"value": kwargs.pop("search", "")}
+                    }
+    return json.dumps(json_data)

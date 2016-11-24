@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+#!/bin/sh
+''''which python    >/dev/null 2>&1 && exec python    "$0" "$@" # '''
+''''which python2   >/dev/null 2>&1 && exec python2   "$0" "$@" # '''
+''''which python2.7 >/dev/null 2>&1 && exec python2.7 "$0" "$@" # '''
+''''exec echo "Error: Python not found!" # '''
+
 # -*- coding: utf-8 -*-
 
 # This file is part of PlexPy.
@@ -22,13 +27,14 @@ import sys
 # Ensure lib added to path, before any other imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib/'))
 
-from plexpy import webstart, logger, web_socket
-
-import locale
-import time
-import signal
 import argparse
+import locale
+import signal
+import time
+
 import plexpy
+from plexpy import config, database, logger, web_socket, webstart
+
 
 # Register signals, such as CTRL + C
 signal.signal(signal.SIGINT, plexpy.sig_handler)
@@ -77,10 +83,13 @@ def main():
     parser.add_argument(
         '-p', '--port', type=int, help='Force PlexPy to run on a specified port')
     parser.add_argument(
+        '--dev', action='store_true', help='Start PlexPy in the development environment')
+    parser.add_argument(
         '--datadir', help='Specify a directory where to store your data files')
-    parser.add_argument('--config', help='Specify a config file to use')
-    parser.add_argument('--nolaunch', action='store_true',
-                        help='Prevent browser from launching on startup')
+    parser.add_argument(
+        '--config', help='Specify a config file to use')
+    parser.add_argument(
+        '--nolaunch', action='store_true', help='Prevent browser from launching on startup')
     parser.add_argument(
         '--pidfile', help='Create a pid file (only relevant when running as a daemon)')
 
@@ -94,6 +103,10 @@ def main():
     # Do an intial setup of the logger.
     logger.initLogger(console=not plexpy.QUIET, log_dir=False,
                       verbose=plexpy.VERBOSE)
+
+    if args.dev:
+        plexpy.DEV = True
+        logger.debug(u"PlexPy is running in the dev environment.")
 
     if args.daemon:
         if sys.platform == 'win32':
@@ -109,8 +122,21 @@ def main():
         # If the pidfile already exists, plexpy may still be running, so
         # exit
         if os.path.exists(plexpy.PIDFILE):
-            raise SystemExit("PID file '%s' already exists. Exiting." %
-                             plexpy.PIDFILE)
+            try:
+                with open(plexpy.PIDFILE, 'r') as fp:
+                    pid = int(fp.read())
+                os.kill(pid, 0)
+            except IOError as e:
+                raise SystemExit("Unable to read PID file: %s", e)
+            except OSError:
+                logger.warn("PID file '%s' already exists, but PID %d is " \
+                            "not running. Ignoring PID file." %
+                            (plexpy.PIDFILE, pid))
+            else:
+                # The pidfile exists and points to a live PID. plexpy may
+                # still be running, so exit.
+                raise SystemExit("PID file '%s' already exists. Exiting." %
+                                 plexpy.PIDFILE)
 
         # The pidfile is only useful in daemon mode, make sure we can write the
         # file properly
@@ -135,7 +161,7 @@ def main():
     if args.config:
         config_file = args.config
     else:
-        config_file = os.path.join(plexpy.DATA_DIR, 'config.ini')
+        config_file = os.path.join(plexpy.DATA_DIR, config.FILENAME)
 
     # Try to create the DATA_DIR if it doesn't exist
     if not os.path.exists(plexpy.DATA_DIR):
@@ -151,13 +177,26 @@ def main():
             'Cannot write to the data directory: ' + plexpy.DATA_DIR + '. Exiting...')
 
     # Put the database in the DATA_DIR
-    plexpy.DB_FILE = os.path.join(plexpy.DATA_DIR, 'plexpy.db')
+    plexpy.DB_FILE = os.path.join(plexpy.DATA_DIR, database.FILENAME)
+
+    if plexpy.DAEMON:
+        plexpy.daemonize()
 
     # Read config and start logging
     plexpy.initialize(config_file)
 
-    if plexpy.DAEMON:
-        plexpy.daemonize()
+    # Start the background threads
+    plexpy.start()
+
+    # Open connection for websocket
+    if plexpy.CONFIG.MONITORING_USE_WEBSOCKET:
+        try:
+            web_socket.start_thread()
+        except:
+            logger.warn(u"Websocket :: Unable to open connection.")
+            # Fallback to polling
+            plexpy.POLLING_FAILOVER = True
+            plexpy.initialize_scheduler()
 
     # Force the http port if neccessary
     if args.port:
@@ -181,30 +220,19 @@ def main():
         'http_port': http_port,
         'http_host': plexpy.CONFIG.HTTP_HOST,
         'http_root': plexpy.CONFIG.HTTP_ROOT,
+        'http_environment': plexpy.CONFIG.HTTP_ENVIRONMENT,
         'http_proxy': plexpy.CONFIG.HTTP_PROXY,
         'enable_https': plexpy.CONFIG.ENABLE_HTTPS,
         'https_cert': plexpy.CONFIG.HTTPS_CERT,
         'https_key': plexpy.CONFIG.HTTPS_KEY,
         'http_username': plexpy.CONFIG.HTTP_USERNAME,
         'http_password': plexpy.CONFIG.HTTP_PASSWORD,
+        'http_basic_auth': plexpy.CONFIG.HTTP_BASIC_AUTH
     }
     webstart.initialize(web_config)
 
-    # Start the background threads
-    plexpy.start()
-
-    # Open connection for websocket
-    if plexpy.CONFIG.MONITORING_USE_WEBSOCKET:
-        try:
-            web_socket.start_thread()
-        except:
-            logger.warn(u"Websocket :: Unable to open connection.")
-            # Fallback to polling
-            plexpy.POLLING_FAILOVER = True
-            plexpy.initialize_scheduler()
-
     # Open webbrowser
-    if plexpy.CONFIG.LAUNCH_BROWSER and not args.nolaunch:
+    if plexpy.CONFIG.LAUNCH_BROWSER and not args.nolaunch and not plexpy.DEV:
         plexpy.launch_browser(plexpy.CONFIG.HTTP_HOST, http_port,
                               plexpy.CONFIG.HTTP_ROOT)
 

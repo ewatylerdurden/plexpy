@@ -14,7 +14,7 @@
 #           default. Do not sets it as empty or it will run
 #           as root.
 # plexpy_dir:   Directory where PlexPy lives.
-#           Default: /usr/local/plexpy
+#           Default: /usr/local/share/plexpy
 # plexpy_chdir:  Change to this directory before running PlexPy.
 #     Default is same as plexpy_dir.
 # plexpy_pid:  The name of the pidfile to create.
@@ -30,15 +30,16 @@ load_rc_config ${name}
 
 : ${plexpy_enable:="NO"}
 : ${plexpy_user:="_sabnzbd"}
-: ${plexpy_dir:="/usr/local/plexpy"}
+: ${plexpy_dir:="/usr/local/share/plexpy"}
 : ${plexpy_chdir:="${plexpy_dir}"}
 : ${plexpy_pid:="${plexpy_dir}/plexpy.pid"}
+: ${plexpy_flags:=""}
 
 status_cmd="${name}_status"
 stop_cmd="${name}_stop"
 
-command="/usr/sbin/daemon"
-command_args="-f -p ${plexpy_pid} python ${plexpy_dir}/PlexPy.py ${plexpy_flags} --quiet --nolaunch"
+command="${plexpy_dir}/PlexPy.py"
+command_args="--daemon --pidfile ${plexpy_pid} --quiet --nolaunch ${plexpy_flags}"
 
 # Ensure user is root when running this script.
 if [ `id -u` != "0" ]; then
@@ -48,23 +49,33 @@ fi
 
 verify_plexpy_pid() {
     # Make sure the pid corresponds to the PlexPy process.
-    pid=`cat ${plexpy_pid} 2>/dev/null`
-    ps -p ${pid} | grep -q "python ${plexpy_dir}/PlexPy.py"
-    return $?
+    if [ -f ${plexpy_pid} ]; then
+      pid=`cat ${plexpy_pid} 2>/dev/null`
+      ps -p ${pid} | grep -q "python2 ${plexpy_dir}/PlexPy.py"
+      return $?
+    else
+      return 0
+    fi
 }
 
-# Try to stop PlexPy cleanly by calling shutdown over http.
+# Try to stop PlexPy cleanly by sending SIGTERM
 plexpy_stop() {
     echo "Stopping $name"
     verify_plexpy_pid
     if [ -n "${pid}" ]; then
+      kill ${pid}
       wait_for_pids ${pid}
-      echo "Stopped"
+      echo "Stopped."
     fi
 }
 
 plexpy_status() {
-    verify_plexpy_pid && echo "$name is running as ${pid}" || echo "$name is not running"
+    verify_plexpy_pid
+    if [ -n "${pid}" ]; then
+      echo "$name is running as ${pid}."
+    else
+      echo "$name is not running."
+    fi
 }
 
 run_rc_command "$1"

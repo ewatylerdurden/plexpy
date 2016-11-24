@@ -1,5 +1,5 @@
 <%!
-from plexpy import helpers
+    from plexpy import helpers
 %>
 % if data:
 <div class="modal-dialog" role="document">
@@ -59,17 +59,24 @@ from plexpy import helpers
                         </div>
                         <div class="checkbox">
                             <label>
+                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_concurrent" ${helpers.checked(data['on_concurrent'])} class="toggle-switches">
+                                Notify on user concurrent streams
+                            </label>
+                            <p class="help-block">Trigger notification when a user has concurrent streams.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_newdevice" ${helpers.checked(data['on_newdevice'])} class="toggle-switches">
+                                Notify on user new device
+                            </label>
+                            <p class="help-block">Trigger notification when a user streams from a new device.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
                                 <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_created" ${helpers.checked(data['on_created'])} class="toggle-switches">
                                 Notify on recently added
                             </label>
                             <p class="help-block">Trigger notification when a media item is added to the Plex Media Server.</p>
-                        </div>
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_extdown" ${helpers.checked(data['on_extdown'])} class="toggle-switches">
-                                Notify on Plex remote access down
-                            </label>
-                            <p class="help-block">Trigger notification when the Plex Media Server cannot be reached externally.</p>
                         </div>
                         <div class="checkbox">
                             <label>
@@ -80,6 +87,20 @@ from plexpy import helpers
                         </div>
                         <div class="checkbox">
                             <label>
+                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_intup" ${helpers.checked(data['on_intup'])} class="toggle-switches">
+                                Notify on Plex server back up
+                            </label>
+                            <p class="help-block">Trigger notification when the Plex Media Server can be reached internally after being down.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_extdown" ${helpers.checked(data['on_extdown'])} class="toggle-switches">
+                                Notify on Plex remote access down
+                            </label>
+                            <p class="help-block">Trigger notification when the Plex Media Server cannot be reached externally.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
                                 <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_extup" ${helpers.checked(data['on_extup'])} class="toggle-switches">
                                 Notify on Plex remote access back up
                             </label>
@@ -87,10 +108,10 @@ from plexpy import helpers
                         </div>
                         <div class="checkbox">
                             <label>
-                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_intup" ${helpers.checked(data['on_intup'])} class="toggle-switches">
-                                Notify on Plex server back up
+                                <input type="checkbox" data-size="small" data-id="${data['id']}" data-config-name="${data['config_prefix']}_on_pmsupdate" ${helpers.checked(data['on_pmsupdate'])} class="toggle-switches">
+                                Notify on Plex update available
                             </label>
-                            <p class="help-block">Trigger notification when the Plex Media Server can be reached internally after being down.</p>
+                            <p class="help-block">Trigger notification when an update for the Plex Media Server is available.</p>
                         </div>
                     </div>
                 </div>

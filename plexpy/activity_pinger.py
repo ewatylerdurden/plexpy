@@ -13,11 +13,20 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from plexpy import logger, pmsconnect, plextv, notification_handler, database, helpers, activity_processor
-
 import threading
-import plexpy
 import time
+
+import plexpy
+import activity_processor
+import database
+import helpers
+import libraries
+import logger
+import notification_handler
+import notifiers
+import plextv
+import pmsconnect
+
 
 monitor_lock = threading.Lock()
 ext_ping_count = 0
@@ -38,24 +47,18 @@ def check_active_sessions(ws_request=False):
         if session_list:
             if int_ping_count >= 3:
                 logger.info(u"PlexPy Monitor :: The Plex Media Server is back up.")
-                # Fire off notifications
-                threading.Thread(target=notification_handler.notify_timeline,
-                                    kwargs=dict(notify_action='intup')).start()
+
+                # Check if any notification agents have notifications enabled
+                if any(d['on_intup'] for d in notifiers.available_notification_agents()):
+                    # Fire off notifications
+                    threading.Thread(target=notification_handler.notify_timeline,
+                                        kwargs=dict(notify_action='intup')).start()
             int_ping_count = 0
 
             media_container = session_list['sessions']
 
             # Check our temp table for what we must do with the new streams
-            db_streams = monitor_db.select('SELECT started, session_key, rating_key, media_type, title, parent_title, '
-                                           'grandparent_title, user_id, user, friendly_name, ip_address, player, '
-                                           'platform, machine_id, parent_rating_key, grandparent_rating_key, state, '
-                                           'view_offset, duration, video_decision, audio_decision, width, height, '
-                                           'container, video_codec, audio_codec, bitrate, video_resolution, '
-                                           'video_framerate, aspect_ratio, audio_channels, transcode_protocol, '
-                                           'transcode_container, transcode_video_codec, transcode_audio_codec, '
-                                           'transcode_audio_channels, transcode_width, transcode_height, '
-                                           'paused_counter, last_paused '
-                                           'FROM sessions')
+            db_streams = monitor_db.select('SELECT * FROM sessions')
             for stream in db_streams:
                 if any(d['session_key'] == str(stream['session_key']) and d['rating_key'] == str(stream['rating_key'])
                        for d in media_container):
@@ -67,16 +70,24 @@ def check_active_sessions(ws_request=False):
                             # Here we can check the play states
                             if session['state'] != stream['state']:
                                 if session['state'] == 'paused':
-                                    # Push any notifications -
-                                    # Push it on it's own thread so we don't hold up our db actions
-                                    threading.Thread(target=notification_handler.notify,
-                                                     kwargs=dict(stream_data=stream, notify_action='pause')).start()
+                                    logger.debug(u"PlexPy Monitor :: Session %s has been paused." % stream['session_key'])
+
+                                    # Check if any notification agents have notifications enabled
+                                    if any(d['on_pause'] for d in notifiers.available_notification_agents()):
+                                        # Push any notifications -
+                                        # Push it on it's own thread so we don't hold up our db actions
+                                        threading.Thread(target=notification_handler.notify,
+                                                         kwargs=dict(stream_data=stream, notify_action='pause')).start()
 
                                 if session['state'] == 'playing' and stream['state'] == 'paused':
-                                    # Push any notifications -
-                                    # Push it on it's own thread so we don't hold up our db actions
-                                    threading.Thread(target=notification_handler.notify,
-                                                     kwargs=dict(stream_data=stream, notify_action='resume')).start()
+                                    logger.debug(u"PlexPy Monitor :: Session %s has been resumed." % stream['session_key'])
+
+                                    # Check if any notification agents have notifications enabled
+                                    if any(d['on_resume'] for d in notifiers.available_notification_agents()):
+                                        # Push any notifications -
+                                        # Push it on it's own thread so we don't hold up our db actions
+                                        threading.Thread(target=notification_handler.notify,
+                                                         kwargs=dict(stream_data=stream, notify_action='resume')).start()
 
                             if stream['state'] == 'paused' and not ws_request:
                                 # The stream is still paused so we need to increment the paused_counter
@@ -114,8 +125,12 @@ def check_active_sessions(ws_request=False):
                                                           'WHERE session_key = ? AND rating_key = ?',
                                                           [stream['session_key'], stream['rating_key']])
 
-                                        threading.Thread(target=notification_handler.notify,
-                                                         kwargs=dict(stream_data=stream, notify_action='buffer')).start()
+                                        # Check if any notification agents have notifications enabled
+                                        if any(d['on_buffer'] for d in notifiers.available_notification_agents()):
+                                            # Push any notifications -
+                                            # Push it on it's own thread so we don't hold up our db actions
+                                            threading.Thread(target=notification_handler.notify,
+                                                             kwargs=dict(stream_data=stream, notify_action='buffer')).start()
                                     else:
                                         # Subsequent buffer notifications after wait time
                                         if int(time.time()) > buffer_values[0]['buffer_last_triggered'] + \
@@ -128,11 +143,16 @@ def check_active_sessions(ws_request=False):
                                                               'WHERE session_key = ? AND rating_key = ?',
                                                               [stream['session_key'], stream['rating_key']])
 
-                                            threading.Thread(target=notification_handler.notify,
-                                                             kwargs=dict(stream_data=stream, notify_action='buffer')).start()
+                                            # Check if any notification agents have notifications enabled
+                                            if any(d['on_buffer'] for d in notifiers.available_notification_agents()):
+                                                # Push any notifications -
+                                                # Push it on it's own thread so we don't hold up our db actions
+                                                threading.Thread(target=notification_handler.notify,
+                                                                 kwargs=dict(stream_data=stream, notify_action='buffer')).start()
 
-                                logger.debug(u"PlexPy Monitor :: Stream buffering. Count is now %s. Last triggered %s."
-                                             % (buffer_values[0]['buffer_count'],
+                                logger.debug(u"PlexPy Monitor :: Session %s is buffering. Count is now %s. Last triggered %s."
+                                             % (stream['session_key'],
+                                                buffer_values[0]['buffer_count'],
                                                 buffer_values[0]['buffer_last_triggered']))
 
                             # Check if the user has reached the offset in the media we defined as the "watched" percent
@@ -141,48 +161,97 @@ def check_active_sessions(ws_request=False):
                             if session['view_offset'] and session['duration'] and session['state'] != 'buffering':
                                 if helpers.get_percent(session['view_offset'],
                                                        session['duration']) > plexpy.CONFIG.NOTIFY_WATCHED_PERCENT:
+                                    # Check if any notification agents have notifications enabled
+                                    if any(d['on_watched'] for d in notifiers.available_notification_agents()):
+                                        # Push any notifications -
+                                        # Push it on it's own thread so we don't hold up our db actions
+                                        threading.Thread(target=notification_handler.notify,
+                                                         kwargs=dict(stream_data=stream, notify_action='watched')).start()
+
+                else:
+                    # The user has stopped playing a stream
+                    if stream['state'] != 'stopped':
+                        logger.debug(u"PlexPy Monitor :: Session %s has stopped." % stream['session_key'])
+
+                        if not stream['stopped']:
+                            # Set the stream stop time
+                            stream['stopped'] = int(time.time())
+                            monitor_db.action('UPDATE sessions SET stopped = ?, state = ? '
+                                              'WHERE session_key = ? AND rating_key = ?',
+                                              [stream['stopped'], 'stopped', stream['session_key'], stream['rating_key']])
+
+                        # Check if the user has reached the offset in the media we defined as the "watched" percent
+                        if stream['view_offset'] and stream['duration']:
+                            if helpers.get_percent(stream['view_offset'],
+                                                   stream['duration']) > plexpy.CONFIG.NOTIFY_WATCHED_PERCENT:
+                                # Check if any notification agents have notifications enabled
+                                if any(d['on_watched'] for d in notifiers.available_notification_agents()):
                                     # Push any notifications -
                                     # Push it on it's own thread so we don't hold up our db actions
                                     threading.Thread(target=notification_handler.notify,
                                                      kwargs=dict(stream_data=stream, notify_action='watched')).start()
 
-                else:
-                    # The user has stopped playing a stream
-                    logger.debug(u"PlexPy Monitor :: Removing sessionKey %s ratingKey %s from session queue"
-                                 % (stream['session_key'], stream['rating_key']))
-                    monitor_db.action('DELETE FROM sessions WHERE session_key = ? AND rating_key = ?',
-                                      [stream['session_key'], stream['rating_key']])
-
-                    # Check if the user has reached the offset in the media we defined as the "watched" percent
-                    if stream['view_offset'] and stream['duration']:
-                        if helpers.get_percent(stream['view_offset'],
-                                               stream['duration']) > plexpy.CONFIG.NOTIFY_WATCHED_PERCENT:
-                            # Push any notifications -
-                            # Push it on it's own thread so we don't hold up our db actions
+                        # Check if any notification agents have notifications enabled
+                        if any(d['on_stop'] for d in notifiers.available_notification_agents()):
+                            # Push any notifications - Push it on it's own thread so we don't hold up our db actions
                             threading.Thread(target=notification_handler.notify,
-                                             kwargs=dict(stream_data=stream, notify_action='watched')).start()
-
-                    # Push any notifications - Push it on it's own thread so we don't hold up our db actions
-                    threading.Thread(target=notification_handler.notify,
-                                     kwargs=dict(stream_data=stream, notify_action='stop')).start()
+                                             kwargs=dict(stream_data=stream, notify_action='stop')).start()
 
                     # Write the item history on playback stop
-                    monitor_process.write_session_history(session=stream)
+                    success = monitor_process.write_session_history(session=stream)
+                    
+                    if success:
+                        # If session is written to the databaase successfully, remove the session from the session table
+                        logger.debug(u"PlexPy Monitor :: Removing sessionKey %s ratingKey %s from session queue"
+                                     % (stream['session_key'], stream['rating_key']))
+                        monitor_db.action('DELETE FROM sessions WHERE session_key = ? AND rating_key = ?',
+                                          [stream['session_key'], stream['rating_key']])
+                    else:
+                        stream['write_attempts'] += 1
+
+                        if stream['write_attempts'] < plexpy.CONFIG.SESSION_DB_WRITE_ATTEMPTS:
+                            logger.warn(u"PlexPy Monitor :: Failed to write sessionKey %s ratingKey %s to the database. " \
+                                        "Will try again on the next pass. Write attempt %s."
+                                        % (stream['session_key'], stream['rating_key'], str(stream['write_attempts'])))
+                            monitor_db.action('UPDATE sessions SET write_attempts = ? '
+                                              'WHERE session_key = ? AND rating_key = ?',
+                                              [stream['write_attempts'], stream['session_key'], stream['rating_key']])
+                        else:
+                            logger.warn(u"PlexPy Monitor :: Failed to write sessionKey %s ratingKey %s to the database. " \
+                                        "Removing session from the database. Write attempt %s."
+                                        % (stream['session_key'], stream['rating_key'], str(stream['write_attempts'])))
+                            logger.debug(u"PlexPy Monitor :: Removing sessionKey %s ratingKey %s from session queue"
+                                         % (stream['session_key'], stream['rating_key']))
+                            monitor_db.action('DELETE FROM sessions WHERE session_key = ? AND rating_key = ?',
+                                              [stream['session_key'], stream['rating_key']])
+
 
             # Process the newly received session data
             for session in media_container:
-                monitor_process.write_session(session)
+                new_session = monitor_process.write_session(session)
+
+                if new_session:
+                    logger.debug(u"PlexPy Monitor :: Session %s has started with ratingKey %s."
+                                 % (session['session_key'], session['rating_key']))
+
         else:
             logger.debug(u"PlexPy Monitor :: Unable to read session list.")
+
+            if int_ping_count == 0:
+                # Temporarily set the stopped time for all sessions
+                stopped_time = int(time.time())
+                monitor_db.action('UPDATE sessions SET stopped = ?', [stopped_time])
 
             int_ping_count += 1
             logger.warn(u"PlexPy Monitor :: Unable to get an internal response from the server, ping attempt %s." \
                         % str(int_ping_count))
 
         if int_ping_count == 3:
-            # Fire off notifications
-            threading.Thread(target=notification_handler.notify_timeline,
-                                kwargs=dict(notify_action='intdown')).start()
+            # Check if any notification agents have notifications enabled
+            if any(d['on_intdown'] for d in notifiers.available_notification_agents()):
+                # Fire off notifications
+                threading.Thread(target=notification_handler.notify_timeline,
+                                 kwargs=dict(notify_action='intdown')).start()
 
 
 def check_recently_added():
@@ -196,10 +265,16 @@ def check_recently_added():
         pms_connect = pmsconnect.PmsConnect()
         recently_added_list = pms_connect.get_recently_added_details(count='10')
 
+        library_data = libraries.Libraries()
         if recently_added_list:
             recently_added = recently_added_list['recently_added']
 
             for item in recently_added:
+                library_details = library_data.get_details(section_id=item['section_id'])
+
+                if not library_details['do_notify_created']:
+                    continue
+
                 metadata = []
                 
                 if 0 < time_threshold - int(item['added_at']) <= time_interval:
@@ -220,13 +295,20 @@ def check_recently_added():
                                          % str(item['rating_key']))
 
                 if metadata:
+
                     if not plexpy.CONFIG.NOTIFY_RECENTLY_ADDED_GRANDPARENT:
                         for item in metadata:
+
+                            library_details = library_data.get_details(section_id=item['section_id'])
+
                             if 0 < time_threshold - int(item['added_at']) <= time_interval:
                                 logger.debug(u"PlexPy Monitor :: Library item %s has been added to Plex." % str(item['rating_key']))
-                                # Fire off notifications
-                                threading.Thread(target=notification_handler.notify_timeline,
-                                                 kwargs=dict(timeline_data=item, notify_action='created')).start()
+
+                                # Check if any notification agents have notifications enabled
+                                if any(d['on_created'] for d in notifiers.available_notification_agents()):
+                                    # Fire off notifications
+                                    threading.Thread(target=notification_handler.notify_timeline,
+                                                     kwargs=dict(timeline_data=item, notify_action='created')).start()
                     
                     else:
                         item = max(metadata, key=lambda x:x['added_at'])
@@ -242,9 +324,12 @@ def check_recently_added():
                                                  % str(item['rating_key']))
 
                             logger.debug(u"PlexPy Monitor :: Library item %s has been added to Plex." % str(item['rating_key']))
-                            # Fire off notifications
-                            threading.Thread(target=notification_handler.notify_timeline,
-                                             kwargs=dict(timeline_data=item, notify_action='created')).start()
+
+                            # Check if any notification agents have notifications enabled
+                            if any(d['on_created'] for d in notifiers.available_notification_agents()):
+                                # Fire off notifications
+                                threading.Thread(target=notification_handler.notify_timeline,
+                                                 kwargs=dict(timeline_data=item, notify_action='created')).start()
 
 def check_server_response():
 
@@ -274,12 +359,40 @@ def check_server_response():
             else:
                 if ext_ping_count >= 3:
                     logger.info(u"PlexPy Monitor :: Plex remote access is back up.")
-                    # Fire off notifications
-                    threading.Thread(target=notification_handler.notify_timeline,
-                                        kwargs=dict(notify_action='extup')).start()
+
+                    # Check if any notification agents have notifications enabled
+                    if any(d['on_extup'] for d in notifiers.available_notification_agents()):
+                        # Fire off notifications
+                        threading.Thread(target=notification_handler.notify_timeline,
+                                            kwargs=dict(notify_action='extup')).start()
                 ext_ping_count = 0
 
         if ext_ping_count == 3:
-            # Fire off notifications
-            threading.Thread(target=notification_handler.notify_timeline,
-                                kwargs=dict(notify_action='extdown')).start()
+            # Check if any notification agents have notifications enabled
+            if any(d['on_extdown'] for d in notifiers.available_notification_agents()):
+                # Fire off notifications
+                threading.Thread(target=notification_handler.notify_timeline,
+                                    kwargs=dict(notify_action='extdown')).start()
+
+
+def check_server_updates():
+
+    with monitor_lock:
+        logger.info(u"PlexPy Monitor :: Checking for PMS updates...")
+
+        plex_tv = plextv.PlexTV()
+        download_info = plex_tv.get_plex_downloads()
+
+        if download_info:
+            logger.info(u"PlexPy Monitor :: Current PMS version: %s", plexpy.CONFIG.PMS_VERSION)
+
+            if download_info['update_available']:
+                logger.info(u"PlexPy Monitor :: PMS update available version: %s", download_info['version'])
+
+                # Check if any notification agents have notifications enabled
+                if any(d['on_pmsupdate'] for d in notifiers.available_notification_agents()):
+                    # Fire off notifications
+                    threading.Thread(target=notification_handler.notify_timeline,
+                                     kwargs=dict(notify_action='pmsupdate')).start()
+            else:
+                logger.info(u"PlexPy Monitor :: No PMS update available.")

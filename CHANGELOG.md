@@ -1,5 +1,459 @@
 # Changelog
 
+## v1.4.15 (2016-11-11)
+
+* New: Add stream and transcoder progress percent to the current activity tooltip.
+* Fix: Refreshing of images in the cache when authentication is disabled.
+* Fix: Plex.tv authentication with special characters in the username or password.
+* Fix: Line breaks in the info page summaries.
+* Fix: Redirect to the proper http root when restarting.
+* Fix: API result type and responses showing incorrectly. (Thanks @Hellowlol)
+* Change: Use https URL for app.plex.tv.
+* Change: Show API traceback errors in the browser with debugging enabled. (Thanks @Hellowlol)
+* Change: Increase table width on mobile devices and max width set to 1750px. (Thanks @XusBadia)
+
+
+## v1.4.14 (2016-10-12)
+
+* Fix: History logging locking up if media is removed from Plex before PlexPy can save the session.
+* Fix: Unable to save API key in the settings.
+* Fix: Some typos in the settings. (Thanks @Leafar3456)
+* Change: Disable script timeout by setting timeout to 0 seconds.
+
+
+## v1.4.13 (2016-10-08)
+
+* New: Option to set the number of days to keep PlexPy backups.
+* New: Option to add a supplementary url to Pushover notifications.
+* New: Option to set a timeout duration for script notifications.
+* New: Added flush temporary sessions button to extra settings for emergency use.
+* New: Added pms_image_proxy to the API.
+* Fix: Insanely long play durations being recorded when connection to the Plex server is lost.
+* Fix: Script notification output not being sent to the logger.
+* Fix: New libraries not being added to homepage automatically.
+* Fix: Success message shown incorrectly when sending a test notification.
+* Fix: PlexPy log level filter not working.
+* Fix: Admin username not shown in login logs.
+* Fix: FeatHub link in readme document.
+* Change: Posters disabled by default for all notification agents.
+* Change: Disable manual changing of the PlexPy API key.
+* Change: Force refresh the Plex.tv token when fetching a new token.
+* Change: Script notifications run in a new thread with the timeout setting.
+* Change: Watched percent moved to general settings.
+* Change: Use human readable file sizes to the media info tables. (Thanks @logaritmisk)
+* Change: Update pytz library.
+
+
+## v1.4.12 (2016-09-18)
+
+* Fix: PMS update check not working for MacOSX.
+* Fix: Square covers for music stats on homepage.
+* Fix: Card width on the homepage for iPhone 6/7 Plus. (Thanks @XusBadia)
+* Fix: Check for running PID when starting PlexPy. (Thanks @spolyack)
+* Fix: FreeBSD service script not stopping PlexPy properly.
+* Fix: Some web UI cleanup.
+* Change: GitHub repostitory moved.
+
+
+## v1.4.11 (2016-09-02)
+
+* Fix: PlexWatch and Plexivity import errors.
+* Fix: Searching in history datatables.
+* Fix: Notifications not sending for Local user.
+
+
+## v1.4.10 (2016-08-15)
+
+* Fix: Missing python ipaddress module preventing PlexPy from starting.
+
+
+## v1.4.9 (2016-08-14)
+
+* New: Option to include current activity in the history tables.
+* New: ISP lookup info in the IP address modal.
+* New: Option to disable web page previews for Telegram notifications.
+* Fix: Send correct JSON header for Slack/Mattermost notifications.
+* Fix: Twitter and Facebook test notifications incorrectly showing as "failed".
+* Fix: Current activity progress bars extending past 100%.
+* Fix: Typo in the setup wizard. (Thanks @wopian)
+* Fix: Update PMS server version before checking for a new update.
+* Change: Compare distro and build when checking for server updates.
+* Change: Nicer y-axis intervals when viewing "Play Duration" graphs.
+
+
+## v1.4.8 (2016-07-16)
+
+* New: Setting to specify PlexPy backup interval.
+* Fix: User Concurrent Streams Notifications by IP Address checkbox not working.
+* Fix: Substitute {update_version} in fallback PMS update notification text.
+* Fix: Check version for automatic IP logging setting.
+* Fix: Use library refresh interval.
+
+
+## v1.4.7 (2016-07-14)
+
+* New: Use MaxMind GeoLite2 for IP address lookup.
+  * Note: The GeoLite2 database must be installed from the settings page.
+* New: Check for Plex updates using plex.tv downloads instead of the server API.
+  * Note: Check for Plex updates has been disabled and must be re-enabled in the settings.
+* New: More notification options for Plex updates.
+* New: Notifications for concurrent streams by a single user.
+* New: Notifications for user streaming from a new device.
+* New: HipChat notification agent. (Thanks @aboron)
+* Fix: Username showing as blank when friendly name is blank.
+* Fix: Direct stream count wrong in the current activity header.
+* Fix: Current activity reporting direct stream when reducing the stream quality switches to transcoding.
+* Fix: Apostophe in an Arnold quote causing the shutdown/restart page to crash.
+* Fix: Disable refreshing posters in guest mode.
+* Fix: PlexWatch/Plexivity import unable to select the "grouped" database table.
+* Change: Updated Facebook notification instructions.
+* Change: Subject line optional for Join notifications.
+* Change: Line break between subject and body text instead of a colon for Facebook, Slack, Twitter, and Telegram.
+* Change: Allow Mattermost notifications using the Slack config.
+* Change: Better formatting for Slack poster notifications.
+* Change: Telegram only notifies once instead of twice when posters are enabled.
+* Change: Host Open Sans font locally instead of querying Google Fonts.
+
+
+## v1.4.6 (2016-06-11)
+
+* New: Added User and Library statistics to the API.
+* New: Ability to refresh individual poster images without clearing the entire cache. (Thanks @Hellowlol)
+* New: Added {added_date}, {updated_date}, and {last_viewed_date} to metadata notification options.
+* New: Log level filter for Plex logs. (Thanks @sanderploegsma)
+* New: Log level filter for PlexPy logs.
+* New: Button to download Plex logs directly from the web interface.
+* New: Advanced setting in the config file to change the number of Plex log lines retrieved.
+* Fix: FreeBSD and FreeNAS init scripts to reflect the path in the installation guide. (Thanks @nortron)
+* Fix: Monitoring crashing when failed to retrieve current activity.
+
+
+## v1.4.5 (2016-05-25)
+
+* Fix: PlexPy unable to start if failed to get shared libraries for a user.
+* Fix: Matching port number when retrieving the PMS url.
+* Fix: Extract mapped IPv4 address in Plexivity import.
+* Change: Revert back to internal url when retrieving PMS images.
+
+
+## v1.4.4 (2016-05-24)
+
+* Fix: Image queries crashing the PMS when playing clips from channels.
+* Fix: Plexivity import if IP address is missing.
+* Fix: Tooltips shown behind the datatable headers.
+* Fix: Current activity instances rendered in a random order causing them to jump around.
+
+
+## v1.4.3 (2016-05-22)
+
+* Fix: PlexPy not starting without any authentication method.
+
+
+## v1.4.2 (2016-05-22)
+
+* New: Option to use HTTP basic authentication instead of the HTML login form.
+* Fix: Unable to save settings when enabling the HTTP proxy setting.
+* Change: Match the PMS port when retrieving the PMS url.
+
+
+## v1.4.1 (2016-05-20)
+
+* New: HTTP Proxy checkbox in the settings. Enable this if using an SSL enabled reverse proxy in front of PlexPy.
+* Fix: Check for blank username/password on login.
+* Fix: Persist current activity artwork blur across refreshes when transcoding details are visible.
+* Fix: Send notifications to multiple XBMC/Plex Home Theater devices.
+* Fix: Reset PMS identifier when clicking verify server button in settings.
+* Fix: Crash when trying to group current activity session in database.
+* Fix: Check current activity returns sessions when refreshing.
+* Fix: Logs sorted out of order.
+* Fix: Resolution reported incorrectly in the stream info modal.
+* Fix: PlexPy crashing when hashing password in the config file.
+* Fix: CherryPy doubling the port number when accessing PlexPy locally with http_proxy enabled.
+* Change: Sort by most recent for ties in watch statistics.
+* Change: Refresh Join devices when changing the API key.
+* Change: Format the Join device IDs.
+* Change: Join notifications now sent with Python Requests module.
+* Change: Add paging for recently added in the API.
+
+
+## v1.4.0 (2016-05-15)
+
+* New: An HTML form login page with sessions support.
+* New: Guest access control for shared users using Plex.tv authentication.
+  * Enable the option in the settings and toggle guest access per user from Users > Edit mode.
+  * Guests can only view their own user data. Other user info is removed/masked.
+  * Guests can only view media from libraries that are shared with them (content rating and label filters are respected). Other libraries are removed/masked.
+  * All settings and admin controls are restricted from guests.
+  * All current activity on the server is shown, but with masked user/metadata info.
+* New: Login logs table on the User and Logs pages.
+* New: Filter the history table by user.
+* New: Filter the graphs by user. (Thanks @Otger)
+* New: Option to hash the admin passowrd in the config file.
+* New: Options to enable/disable/rearrange each section on the homepage
+* New: Toggle media types for recently added items on the homepage.
+* New: Option to enter an Imgur API client ID for uploading posters.
+  * Note: The shared Imgur client id will be removed in a future PlexPy update! Please enter your own client id in the settings to continue uploading posters!
+* New: HTML support for Email.
+* New: Posters and HTML support for Telegram.
+* New: Poster support for Slack.
+* New: Poster support for Twitter.
+* New: Re-added Plex Home Theater notification agent.
+* New: Browser notification agent (experimental).
+* New: Added {plex_url} as a notification option.
+* New: Added transcode decision to the activity header.
+* New: Documentation for APIv2 (see API.md for details).
+* New: Import a Plexivity database into PlexPy.
+* New: Prettier fallback image for art/episodes.
+* New: Prettier confirm modal dialogues.
+* New: Cache images to reduce Plex API calls. This can be disabled in the under Settings > Extra Settings. (Thanks @Hellowlol)
+* New: Scheduled backups of the config file.
+* New: Button to clear the PlexPy cache/images in the settings.
+* New: Button to manually backup the PlexPy database/config in the settings.
+* New: Button to clear the PlexPy logs in the settings.
+* New: Button to download PlexPy log file on the Logs tab.
+* New: Advanced setting in config file to change the Plex API timeout value.
+* Fix: Mixed content HTTP request in settings (for reverse proxies with SSL).
+* Fix: Rename recently "watched" music to "played".
+* Change: Current activity details now persists across refreshes.
+* Change: Smoother transitions between preview thumbnails in current activity.
+* Change: Datatables now display all columns and scroll horizontally on smaller screens.
+* Change: Ability to change the base URL for reverse proxies in the web interface.
+* Change: Added a "Verify Server" button in the settings.
+* Change: Added request status code in the logs for notifer errors.
+* Change: Remove in-memory logs and read lines from log file instead. (Thanks @Hellowlol)
+* Change: Limit number of failed attempts to write sessions to history. Default is 5 attempts.
+* Change: A bunch of UI updates.
+* Change: A bunch of backend code cleanup.
+* Removed: All unused Python packages.
+
+
+## v1.3.16 (2016-05-01)
+
+* Fix: Viewing photos crashing PlexPy.
+* Fix: Persist Users > Edit mode on datatable page change.
+* Fix: PMS update notifications broken.
+* Change: Cache notifications poster with thread ID to avoid overwritting images.
+
+
+## v1.3.15 (2016-04-18)
+
+* Fix: Slack notifications failing when using and icon URL.
+* Fix: 127.0.0.1 showing as an external IP address on the history tables.
+* Fix: Regression file sizes not shown in the media info table footer.
+* Fix: Retrieving proper PMS URL when multiple connections are published to plex.tv.
+* Fix: Some typos in the logger.
+* Fix: Some other typos in the WebUI. (Thanks @xtjoeytx)
+* Change: Optimized mobile web app icons and spash screens. (Thanks @alotufo)
+
+
+## v1.3.14 (2016-03-29)
+
+* Fix: Regression for missing notify_action for script notifications.
+* Fix: Typo for home stats cards in the settings.
+
+
+## v1.3.13 (2016-03-27)
+
+* Fix: Only mask strings longer than 5 characters in logs.
+
+
+## v1.3.12 (2016-03-27)
+
+* Fix: "Check GitHub for updates" not rescheduling when toggling setting.
+* Fix: Bug where notifications would fail if metadata is not found.
+* Fix: Bug where notifications would fail if unable to upload poster to Imgur.
+* Fix: PlexPy will now start properly for different Python environment variables.
+* New: Feature requests moved to FeatHub.
+* New: Ability to specify a GitHub API token for updates (optional).
+* New: Mask out sensitive information from the logs.
+* New: New and updated Arnold quotes. (Thanks @Vilsol & @Chrisophogus)
+* New: "First" and "Last" page buttons to datatables.
+* New: Access log file from the "Help & Info" page.
+* New: CherryPy environment options (for development). (Thanks @codedecay)
+* New: PlexPy development environment (for development only).
+* Change: Facebook posts with a posters now include a summary.
+* Change: Facebook posts now use a default poster if the poster is not found or unable to upload to Imgur.
+* Change: IFTTT events can be fromatted with the {action} name.
+* Change: Logs now use ISO date format to avoid locale encoding errors. (Thanks @alshain)
+* Remove: Non-functioning Plex notification agent.
+
+
+## v1.3.11 (2016-03-15)
+
+* Fix: Typo preventing history logging for websockets.
+
+
+## v1.3.10 (2016-03-12)
+
+* Fix: Actually allow HTML tags for Pushover.
+* Fix: PlexPy not restarting on Windows if there is a space in the folder path.
+* Fix: Reconnect websocket when changing PMS SSL setting.
+* Fix: Datatables not loading when view_offset or duration is blank.
+* Fix: Bug when checking the PMS version in the settings.
+* Fix: Auto-refreshing of log tables.
+* Fix: Logging of IPv6 addresses. (PMS version >0.9.14 only.)
+* Fix: Hide days selection from the Play Totals graph page.
+* Fix: PlexPy overwriting user's own SSL certificate/key.
+* Fix: Multiple watched notifications when using websocket.
+* Fix: Some missing python library imports.
+* Fix: Some typos in settings and PlexWatch importer.
+* New: Ability to get notified of PMS updates.
+* New: Ability to disable the link to Plex Web with Facebook notifications and use IMDB, TVDB, TMDb, or Last.fm instead.
+* New: Ability to reset Imgur poster url from the info page if the poster is changed.
+* New: Tooltips on the current activity progress bars.
+* New: Side scrolling of Recently Added/Recently Played items.
+* New: Document all date/time format options.
+* New: Button to clear notification logs.
+* New: Customizable backup, cache, and log directories.
+* Change: Retry writing sessions to history if it fails, so sessions don't get lost. (Activity pinger only, not availble for websocket.)
+* Change: Save any unknown sessions to the "Local" user.
+* Change: History table modal is filtered depending on which graph series is clicked.
+* Change: Revert back to saving the state of datatables (search, sorting, entries per page, etc.).
+* Change: Newlines are not longer stripped from notification text which allows for finer control of how notifications look.
+* Change: Updated FreeNAS/FreeBSD init scripts. (Must have updated jails.) (Thanks @chiviak)
+
+
+## v1.3.9 (2016-02-21)
+
+* Fix: Recently added notification not sent to all notification agents.
+* New: Pushover HTML support. (Thanks @elseym)
+
+
+## v1.3.8 (2016-02-21)
+
+* Fix: Regression unable to clear HTTP password.
+* Fix: Remove media tags from script arguments for server notifications.
+* Fix: Encode poster titles to UTF-8 for Imgur upload.
+* Fix: Allow notifications to send without poster if Imgur upload fails.
+* New: Notification Logs table in the Logs tab.
+* New: Toggle in settings to enable posters in notifications. (Disabled by default.)
+* Change: Save Imgur poster URL to database so upload is not needed every time.
+* Change: Notify log in database to log each event as a separate entry.
+* Change: Monitor remote access is unchecked if remote access is disabled on server.
+
+
+## v1.3.7 (2016-02-20)
+
+* Fix: Verifying server with SSL enabled.
+* Fix: Regression where {stream_duration} reported as 0.
+* Fix: Video metadata flags showing up for track info.
+* Fix: Custom library icons not applied to Library Statistics.
+* Fix: Typos in the Web UI.
+* New: ETA to Current Activity overlay.
+* New: Total duration to Libraries and Users tables.
+* New: {machine_id} to notification options.
+* New: IMDB, TVDB, TMDb, Last.fm, and Trackt IDs/URLs to notification options.
+* New: {poster_url} to notification options using Imgur.
+* New: Poster and link for Facebook notifications.
+* New: Log javascript errors from the Web UI.
+* New: Configuration and Scheduler info to the settings page.
+* New: Schedule background task to backup the PlexPy database.
+* New: URL anonymizer for external links.
+* New: Plex Media Scanner log file to Log viewer.
+* New: API v2 (sill very experimental). (Thanks @Hellowlol)
+* Change: Allow secure websocket connections.
+* Change: History grouping now accounts for the view offset.
+* Change: Subject line can be toggled off for Facebook, Slack, Telegram, and Twitter.
+* Change: Create self-signed SSL certificates when enabling HTTPS.
+* Change: Revert homepage "Last Played" to "Last Watched".
+* Change: Disable monitor remote access checkbox if remote access is not enabled on the PMS.
+* Change: Disable IP logging checkbox if PMS version is 0.9.14 or greater.
+
+
+## v1.3.6 (2016-02-03)
+
+* Fix: Regression where {duration} not reported in minutes.
+* Fix: Proper daemonizing in FreeBSD and FreeNAS init scripts.
+* Change: Update readme documentation.
+
+
+## v1.3.5 (2016-02-02)
+
+* Fix: Removing unique constraints from database.
+* Fix: Unable to expand media info table when missing "Added At" date.
+* Fix: Server verification for unpublished servers.
+* Fix: Updating PMS identifier for server change.
+* New: {stream_time}, {remaining_time}, and {progress_time} to notification options.
+* New: Powershell script support. (Thanks @Hellowlol)
+* New: Method to delete duplicate libraries.
+* Change: Daemonize before running start up tasks.
+
+
+## v1.3.4 (2016-01-29)
+
+* Fix: Activity checker not starting with library update (history not logging).
+* Fix: Libraries duplicated in database.
+* Fix: Buffer notifications even when disabled when using websockets.
+* Fix: Libraries and Users lists not refreshing.
+* Fix: Server verification in settings.
+* Fix: Empty libraries not added to database.
+* New: Unique identifiers to notification options.
+* Remove: Requirement of media type toggles for recently added notifications.
+* Remove: Built in Twitter key and secret.
+* Change: Unnecessary quoting of script arguments.
+* Change: Facebook notification instructions.
+
+
+## v1.3.3 (2016-01-26)
+
+* Fix: Plays by Month graph not loading.
+* Change: Disable caching for datatables.
+* Change: Improved updating library data in the database again.
+
+
+## v1.3.2 (2016-01-24)
+
+* Fix: 'datestamp' and 'timestamp' for server notifications.
+* Change: New method for updating library data in database.
+
+
+## v1.3.1 (2016-01-23)
+
+* Fix: Notifiers authorization popups for reverse proxies.
+* Fix: Empty brackets in titles on tables.
+* Fix: Star rating overlapping text.
+* Fix: Unable to startup when library refresh fails.
+* Fix: Unable to parse 'datestamp' and 'timestamp' format.
+* Change: Rename "Last Watched" to "Last Played".
+* Change: More descriptive libraries updating message.
+
+
+## v1.3.0 (2016-01-23)
+
+* New: Brand new Libraries section.
+* New: Lots of new library statistics.
+* New: Media info table for libraries.
+* New: Web app for Android and iOS. (Thanks @zobe123)
+* New: Slack notification agent. (Thanks @richipargo)
+* New: Facebook notification agent.
+* New: Custom script notification agent. (Thanks @Hellowlol)
+* New: Custom "From Name" to email notification agent.
+* New: Ability to test notifications / send custom one-off notifications.
+* New: 'datestamp' and 'timestamp' notification options.
+* New: More concurrent stream statistics.
+* New: Media info flags on the info pages.
+* New: Ability to fix broken metadata if the item has been moved in Plex.
+* New: Ability to rearrange the homepage statistics cards.
+* New: CentOS startup script (Thanks @PHoSawyer)
+* Fix: Server name blank after first run wizard.
+* Fix: Incorrect duration for grouped home stats.
+* Fix: Allow SSL when verifying server in settings.
+* Fix: Metadata for grouped recently added notifications.
+* Fix: Unable to access settings with missing changelog file.
+* Fix: Month name localization on play totals graphs.
+* Fix: Get new PMS identifier when changing servers.
+* Fix: Websocket log spam when there is no active session.
+* Fix: Logs and cache folder not created in the data directory.
+* Fix: Title links on sync table.
+* Fix: Other various minor bugs and graphical glitches.
+* Change: Prettier thumbnail popovers on tables.
+* Change: Star ratings to use css/font-awesome.
+* Change: More detailed logging info to warnings and errors.
+* Change: Better PlexPy process restart handling (Thanks @jackwilsdon)
+* Change: Massive behind the scenes code cleanup.
+* Remove: Built in Pushover API token (User's own API token is now required).
+
+
 ## v1.2.16 (2015-12-22)
 
 * Fix Most Concurrent stream stat for emtpy databases

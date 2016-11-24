@@ -13,21 +13,26 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from plexpy import helpers, logger
-import re
 import os
-import plexpy
 
-def get_log_tail(window=20, parsed=True):
+import plexpy
+import helpers
+import logger
+
+def get_log_tail(window=20, parsed=True, log_type="server"):
 
     if plexpy.CONFIG.PMS_LOGS_FOLDER:
-        log_file = os.path.join(plexpy.CONFIG.PMS_LOGS_FOLDER, 'Plex Media Server.log')
+        log_file = ""
+        if log_type == "server":
+            log_file = os.path.join(plexpy.CONFIG.PMS_LOGS_FOLDER, 'Plex Media Server.log')
+        elif log_type == "scanner":
+            log_file = os.path.join(plexpy.CONFIG.PMS_LOGS_FOLDER, 'Plex Media Scanner.log')
     else:
         return []
 
     try:
         logfile = open(log_file, "r")
-    except IOError, e:
+    except IOError as e:
         logger.error('Unable to open Plex Log file. %s' % e)
         return []
 

@@ -13,25 +13,28 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from plexpy import helpers
-
 from logutils.queue import QueueHandler, QueueListener
 from logging import handlers
 
-import multiprocessing
 import contextlib
-import plexpy
+import errno
+import logging
+import multiprocessing
+import os
+import re
+import sys
 import threading
 import traceback
-import logging
-import errno
-import sys
-import os
+
+import plexpy
+import helpers
 
 # These settings are for file logging only
 FILENAME = "plexpy.log"
-MAX_SIZE = 1000000 # 1 MB
+MAX_SIZE = 5000000  # 5 MB
 MAX_FILES = 5
+
+_BLACKLIST_WORDS = []
 
 # PlexPy logger
 logger = logging.getLogger("plexpy")
@@ -39,16 +42,71 @@ logger = logging.getLogger("plexpy")
 # Global queue for multiprocessing logging
 queue = None
 
-class LogListHandler(logging.Handler):
+class NoThreadFilter(logging.Filter):
     """
-    Log handler for Web UI.
+    Log filter for the current thread
     """
+    def __init__(self, threadName):
+        self.threadName = threadName
 
-    def emit(self, record):
-        message = self.format(record)
-        message = message.replace("\n", "<br />")
+    def filter(self, record):
+        return not record.threadName == self.threadName
 
-        plexpy.LOG_LIST.insert(0, (helpers.now(), message, record.levelname, record.threadName))
+
+# Taken from Hellowlol/HTPC-Manager
+class BlacklistFilter(logging.Filter):
+    """
+    Log filter for blacklisted tokens and passwords
+    """
+    def __init__(self):
+        pass
+
+    def filter(self, record):
+        if not plexpy.CONFIG.LOG_BLACKLIST:
+            return True
+
+        for item in _BLACKLIST_WORDS:
+            try:
+                if item in record.msg:
+                    record.msg = record.msg.replace(item, 8 * '*' + item[-2:])
+                if any(item in str(arg) for arg in record.args):
+                    record.args = tuple(arg.replace(item, 8 * '*' + item[-2:]) if isinstance(arg, basestring) else arg
+                                        for arg in record.args)
+            except:
+                pass
+        return True
+
+
+class PublicIPFilter(logging.Filter):
+    """
+    Log filter for public IP addresses
+    """
+    def __init__(self):
+        pass
+
+    def filter(self, record):
+        if not plexpy.CONFIG.LOG_BLACKLIST:
+            return True
+
+        try:
+            # Currently only checking for ipv4 addresses
+            ipv4 = re.findall(r'[0-9]+(?:\.[0-9]+){3}(?!\d*-[a-z0-9]{6})', record.msg)
+            for ip in ipv4:
+                if helpers.is_ip_public(ip):
+                    record.msg = record.msg.replace(ip, ip.partition('.')[0] + '.***.***.***')
+
+            args = []
+            for arg in record.args:
+                ipv4 = re.findall(r'[0-9]+(?:\.[0-9]+){3}(?!\d*-[a-z0-9]{6})', arg) if isinstance(arg, basestring) else []
+                for ip in ipv4:
+                    if helpers.is_ip_public(ip):
+                        arg = arg.replace(ip, ip.partition('.')[0] + '.***.***.***')
+                args.append(arg)
+            record.args = tuple(args)
+        except:
+            pass
+
+        return True
 
 
 @contextlib.contextmanager
@@ -139,17 +197,11 @@ def initLogger(console=False, log_dir=False, verbose=False):
     logger.propagate = False
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    # Add list logger
-    loglist_handler = LogListHandler()
-    loglist_handler.setLevel(logging.DEBUG)
-
-    logger.addHandler(loglist_handler)
-
     # Setup file logger
     if log_dir:
         filename = os.path.join(log_dir, FILENAME)
 
-        file_formatter = logging.Formatter('%(asctime)s - %(levelname)-7s :: %(threadName)s : %(message)s', '%d-%b-%Y %H:%M:%S')
+        file_formatter = logging.Formatter('%(asctime)s - %(levelname)-7s :: %(threadName)s : %(message)s', '%Y-%m-%d %H:%M:%S')
         file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(file_formatter)
@@ -158,12 +210,20 @@ def initLogger(console=False, log_dir=False, verbose=False):
 
     # Setup console logger
     if console:
-        console_formatter = logging.Formatter('%(asctime)s - %(levelname)s :: %(threadName)s : %(message)s', '%d-%b-%Y %H:%M:%S')
+        console_formatter = logging.Formatter('%(asctime)s - %(levelname)s :: %(threadName)s : %(message)s', '%Y-%m-%d %H:%M:%S')
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(console_formatter)
         console_handler.setLevel(logging.DEBUG)
 
         logger.addHandler(console_handler)
+
+    # Add filters to log handlers
+    # Only add filters after the config file has been initialized
+    # Nothing prior to initialization should contain sensitive information
+    if not plexpy.DEV and plexpy.CONFIG:
+        for handler in logger.handlers:
+            handler.addFilter(BlacklistFilter())
+            handler.addFilter(PublicIPFilter())
 
     # Install exception hooks
     initHooks()

@@ -13,14 +13,16 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
 import os
-import tarfile
 import platform
-import plexpy
+import re
 import subprocess
+import tarfile
 
-from plexpy import logger, version, request
+import plexpy
+import logger
+import request
+import version
 
 
 def runGit(args):
@@ -124,6 +126,7 @@ def checkGithub():
     # Get the latest version available from github
     logger.info('Retrieving latest version information from GitHub')
     url = 'https://api.github.com/repos/%s/plexpy/commits/%s' % (plexpy.CONFIG.GIT_USER, plexpy.CONFIG.GIT_BRANCH)
+    if plexpy.CONFIG.GIT_TOKEN: url = url + '?access_token=%s' % plexpy.CONFIG.GIT_TOKEN
     version = request.request_json(url, timeout=20, validator=lambda x: type(x) == dict)
 
     if version is None:
@@ -144,6 +147,7 @@ def checkGithub():
 
     logger.info('Comparing currently installed version with latest GitHub version')
     url = 'https://api.github.com/repos/%s/plexpy/compare/%s...%s' % (plexpy.CONFIG.GIT_USER, plexpy.LATEST_VERSION, plexpy.CURRENT_VERSION)
+    if plexpy.CONFIG.GIT_TOKEN: url = url + '?access_token=%s' % plexpy.CONFIG.GIT_TOKEN
     commits = request.request_json(url, timeout=20, whitelist_status_code=404, validator=lambda x: type(x) == dict)
 
     if commits is None:
@@ -248,9 +252,9 @@ def read_changelog():
 
     try:
         logfile = open(changelog_file, "r")
-    except IOError, e:
+    except IOError as e:
         logger.error('PlexPy Version Checker :: Unable to open changelog file. %s' % e)
-        return None
+        return '<h4>Unable to open changelog file</h4>'
 
     if logfile:
         output = ''
@@ -263,9 +267,15 @@ def read_changelog():
                 output += '<h4>' + line[3:] + '</h4>'
             elif line[:2] == '* ' and previous_line.strip() == '':
                 output += '<ul><li>' + line[2:] + '</li>'
+            elif line[:2] == '* ' and previous_line[:4] == '  * ':
+                output += '</ul><li>' + line[2:] + '</li>'
             elif line[:2] == '* ':
                 output += '<li>' + line[2:] + '</li>'
-            elif line.strip() == '' and previous_line[:2] == '* ':
+            elif line[:4] == '  * ' and previous_line[:2] == '* ':
+                output += '<ul><li>' + line[4:] + '</li>'
+            elif line[:4] == '  * ':
+                output += '<li>' + line[4:] + '</li>'
+            elif line.strip() == '' and (previous_line[:2] == '* ' or previous_line[:4] == '  * '):
                 output += '</ul></br>'
             else:
                 output += line + '</br>'
